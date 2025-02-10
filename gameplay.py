@@ -1,5 +1,6 @@
 import pygame
 import random
+import math
 
 from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES, NORMAL_ORDER, TRUMP_ORDER
 from ui import Button
@@ -147,6 +148,11 @@ class GamePlay:
         self.close_button = Button(self.K_rect, "Close", self.close_game, pygame.font.SysFont('Arial', 20))
         self.switch_button = Button(self.L_rect, "Switch", self.switch_trump, pygame.font.SysFont('Arial', 20))
         self.marriage_button = Button(self.M_rect, "Marriage", self.announce_marriage, pygame.font.SysFont('Arial', 20))
+        
+        # Variables for shake animation
+        self.shake_card_index = None   # The index of the card to shake (if any)
+        self.shake_start_time = 0        # When the shake started (in milliseconds)
+        self.shake_duration = 500        # Duration of the shake animation in milliseconds
 
     def get_game_state(self):
         """
@@ -166,10 +172,11 @@ class GamePlay:
         }
 
     def draw(self):
+        # Draw the background.
         self.screen.blit(self.background, (0, 0))
         font_small = pygame.font.SysFont('Arial', 20)
 
-        # Draw opponent’s hand (Zone A) as card backs.
+        # --- Draw Opponent’s Hand (Zone A) as Card Backs ---
         if self.computer_hand:
             num_cards = len(self.computer_hand)
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
@@ -179,32 +186,60 @@ class GamePlay:
                 pos = (start_x + i * (CARD_WIDTH + CARD_SPACING), y)
                 self.screen.blit(self.card_back, pos)
 
-        # Draw player’s hand (Zone B) face-up.
+        # --- Draw Player’s Hand (Zone B) with Grey-out & Shake Effects ---
         if self.player_hand:
             num_cards = len(self.player_hand)
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
             start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
             y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
+
+            # Determine allowed suit when in second phase and player is following.
+            allowed_suit = None
+            if not self.first_phase:
+                if self.current_leader == "computer" and self.computer_played:
+                    allowed_suit = self.computer_played[1]
+            has_valid = any(card[1] == allowed_suit for card in self.player_hand) if allowed_suit else False
+
             for i, card in enumerate(self.player_hand):
-                pos = (start_x + i * (CARD_WIDTH + CARD_SPACING), y)
-                self.screen.blit(self.card_images.get(card), pos)
-                
-        # Display marriage announcement if active.
+                pos_x = start_x + i * (CARD_WIDTH + CARD_SPACING)
+
+                # If this card is set to shake (invalid click), calculate a shake offset.
+                if self.shake_card_index is not None and i == self.shake_card_index:
+                    elapsed = pygame.time.get_ticks() - self.shake_start_time
+                    if elapsed < self.shake_duration:
+                        # Use a sine function for a smooth oscillation; adjust magnitude (10) as needed.
+                        offset = int(10 * math.sin((elapsed / 50.0) * math.pi))
+                        pos_x += offset
+                    else:
+                        # Shake is done; reset the shake variables.
+                        self.shake_card_index = None
+
+                pos = (pos_x, y)
+                card_img = self.card_images.get(card)
+
+                # In second phase: if an allowed suit is required and the player holds valid card(s),
+                # grey out cards that do not match the allowed suit.
+                if not self.first_phase and allowed_suit and has_valid and card[1] != allowed_suit:
+                    card_img = card_img.copy()  # Make a copy so the original image isn’t modified.
+                    card_img.set_alpha(100)     # Lower opacity (adjust value as needed).
+
+                self.screen.blit(card_img, pos)
+
+        # --- Draw the Marriage Announcement, Played Cards, Deck, Buttons, etc. ---
+        # (Keep your existing drawing code below here.)
         if self.marriage_announcement is not None:
             current_time = pygame.time.get_ticks()
             if current_time - self.marriage_time < 3000:
-                # Draw the announced marriage cards in the center (e.g. in Zone C).
                 card1, card2 = self.marriage_announcement
                 img1 = self.card_images.get(card1)
                 img2 = self.card_images.get(card2)
                 if img1 and img2:
-                    total_width = CARD_WIDTH * 2 + 10  # 10 pixels spacing
+                    total_width = CARD_WIDTH * 2 + 10
                     x = self.C_rect.centerx - total_width // 2
                     y = self.C_rect.centery - CARD_HEIGHT // 2
                     self.screen.blit(img1, (x, y))
                     self.screen.blit(img2, (x + CARD_WIDTH + 10, y))
             else:
-                # After 5 seconds, clear the announcement.
                 self.marriage_announcement = None
 
         # Draw played cards (Zone C).
@@ -219,92 +254,77 @@ class GamePlay:
                 rect = img.get_rect(center=self.E_rect.center)
                 self.screen.blit(img, rect)
 
-        # Draw "End Trick" button (Zone F).
+        # Draw the "End Trick" button (Zone F).
         pygame.draw.rect(self.screen, (180, 180, 250), self.F_rect)
         et_text = font_small.render("End Trick", True, (0, 0, 0))
         et_rect = et_text.get_rect(center=self.F_rect.center)
         self.screen.blit(et_text, et_rect)
 
-        # Draw deck (Zone I).
+        # Draw deck (Zone I), trump card (Zone H), remaining deck count (Zone J), and other UI elements.
+        # (Retain your existing drawing code for these zones.)
         if self.deck:
             deck_img = pygame.transform.scale(self.card_back, (self.I_rect.width, self.I_rect.height))
             self.screen.blit(deck_img, (self.I_rect.x, self.I_rect.y))
         else:
             pygame.draw.rect(self.screen, (50, 50, 50), self.I_rect)
-        # Draw trump card (Zone H).
         if self.trump_card:
             trump_img = pygame.transform.scale(self.card_images.get(self.trump_card), (self.H_rect.width, self.H_rect.height))
             self.screen.blit(trump_img, (self.H_rect.x, self.H_rect.y))
         else:
             pygame.draw.rect(self.screen, (50, 50, 50), self.H_rect)
-
-        # Draw remaining deck count (Zone J).
         pygame.draw.rect(self.screen, (250, 250, 200), self.J_rect)
         count_text = font_small.render(str(len(self.deck)), True, (0, 0, 0))
         count_rect = count_text.get_rect(center=self.J_rect.center)
         self.screen.blit(count_text, count_rect)
 
-        # Draw the new buttons.
+        # Draw the additional buttons.
         if self.first_phase:
             self.close_button.draw(self.screen)
         else:
-            # If not first phase, show a "2nd Phase" label in the Close button area.
             sp_text = font_small.render("2nd Phase", True, (0, 0, 0))
             sp_rect = sp_text.get_rect(center=self.K_rect.center)
             pygame.draw.rect(self.screen, (200, 250, 200), self.K_rect)
             self.screen.blit(sp_text, sp_rect)
-
         self.switch_button.draw(self.screen)
         self.marriage_button.draw(self.screen)
-        
-        # --- Draw Trump Suit Text (Zone T) ---
-        # Create the text: if trump_suit is defined, show it; otherwise, indicate no trump.
+
+        # Draw trump suit text (Zone T).
         trump_text = f"Trump Suit: ({self.trump_suit})" if self.trump_suit else "No Trump"
         trump_surface = font_small.render(trump_text, True, (0, 0, 0))
         trump_rect = trump_surface.get_rect(center=self.T_rect.center)
-        # Optionally, draw a light background for clarity:
         pygame.draw.rect(self.screen, (250, 250, 250), self.T_rect)
         self.screen.blit(trump_surface, trump_rect)
 
-        # --- Draw Overall Game Points (Zone OG) ---
+        # Draw overall game points (Zone OG).
         game_points_text = f"Game: {self.player_game_points} - {self.computer_game_points}"
         game_points_surface = font_small.render(game_points_text, True, (0, 0, 0))
         game_points_rect = game_points_surface.get_rect(center=self.OG_rect.center)
-        # Optionally, draw a background rectangle:
         pygame.draw.rect(self.screen, (250, 250, 200), self.OG_rect)
         self.screen.blit(game_points_surface, game_points_rect)
 
-        # Draw points (Zone G).
+        # Draw round points (Zone G).
         pygame.draw.rect(self.screen, (250, 200, 200), self.G_rect)
         points_text = font_small.render(f"Pts: {self.player_round_points}-{self.computer_round_points}", True, (0, 0, 0))
         points_rect = points_text.get_rect(center=self.G_rect.center)
         self.screen.blit(points_text, points_rect)
-        
-        # --- Draw Player's Won Cards in Zone W (Overlapping, Transparent Background) ---
+
+        # Draw the player's won cards (Zone W).
         if self.player_won_cards:
-            # Choose a horizontal offset for the overlapping effect.
-            offset = 20  # each card will be shifted 20 pixels to the right
-            x = self.W_rect.x  # W_rect should already be defined as the area for won cards.
-            y = self.W_rect.y  # Use the y-coordinate of the zone.
-            
-            # Scale down factor (for example, 50% of the original card size).
+            offset = 20  # Overlap offset.
+            x = self.W_rect.x
+            y = self.W_rect.y
             scale_factor = 0.5
             thumb_width = int(CARD_WIDTH * scale_factor)
             thumb_height = int(CARD_HEIGHT * scale_factor)
-            
             for card in self.player_won_cards:
-                # Try to get the image for the card.
                 img = self.card_images.get(card)
                 if img:
-                    # Create a thumbnail version of the card.
                     thumb = pygame.transform.scale(img, (thumb_width, thumb_height))
                     self.screen.blit(thumb, (x, y))
                 else:
-                    # Fallback: render the card name if the image is missing.
                     card_text = f"{card[0]}{card[1]}"
                     text_surface = pygame.font.SysFont('Arial', 16).render(card_text, True, (0, 0, 0))
                     self.screen.blit(text_surface, (x, y))
-                # Increase x by the offset so that each new card overlaps slightly.
                 x += offset
 
         # Draw feedback message.
@@ -316,97 +336,53 @@ class GamePlay:
         if event.type != pygame.MOUSEBUTTONDOWN:
             return
 
-        # First, let the new buttons process the event.
+        # Let buttons process the event first.
         self.close_button.handle_event(event)
         self.switch_button.handle_event(event)
         self.marriage_button.handle_event(event)
-        
-        # Then, get the event position.
+
         pos = event.pos
 
-        # If the "End Trick" button is clicked, process that immediately.
+        # If the "End Trick" button is clicked, process it immediately.
         if self.F_rect.collidepoint(pos):
             if self.trick_ready:
                 self.resolve_trick()
             return
 
-        # If a trick is in progress, ignore further clicks on the player's hand.
+        # If a trick is in progress, ignore additional clicks.
         if self.trick_ready:
             return
 
-        # Determine whose turn it is.
-        if self.current_leader == "player":
-            num_cards = len(self.player_hand)
-            if num_cards == 0:
-                return
-            total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-            start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
-            y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
-            for i in range(num_cards):
-                card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
-                if card_rect.collidepoint(pos):
-                    if self.marriage_pending:
-                        selected_card = self.player_hand[i]
-                        suit = selected_card[1]
-                        # DEBUG: print the current set and the selected suit.
-                        print("DEBUG: Player marriages announced so far:", self.player_marriages_announced)
-                        print("DEBUG: Selected card suit:", suit)
-                        
-                        # Check if a marriage for this suit has already been announced.
-                        if suit in self.player_marriages_announced:
-                            self.message = f"Marriage for suit {suit} has already been announced."
-                            return
-                        # Determine partner: if selected card is King, partner should be Queen; if Queen, partner should be King.
-                        if selected_card[0] == "K":
-                            partner = ("Q", suit)
-                        elif selected_card[0] == "Q":
-                            partner = ("K", suit)
-                        else:
-                            self.message = "Selected card is not eligible for marriage."
-                            return
-                        if partner not in self.player_hand:
-                            self.message = "You don't have the matching card for marriage."
-                            return
-                        # Valid marriage: record the announcement.
-                        self.marriage_announcement = (selected_card, partner)
-                        self.marriage_time = pygame.time.get_ticks()
-                        self.marriage_pending = False
-                        # Immediately mark this suit as used so no further marriage is allowed for it.
-                        self.player_marriages_announced.add(suit)
-                        points = 40 if suit == self.trump_suit else 20
-                        self.player_round_points += points
-                        self.message = f"Marriage announced in {suit}! +{points} points."
-                        print("DEBUG: Updated player marriages announced:", self.player_marriages_announced)
-                        return
-                    else:
-                        # Normal lead play.
-                        self.player_lead(i)
-                        break
-        else:
-            # When computer leads, player follows.
-            # In second phase, enforce follow suit if possible.
-            allowed_suit = self.computer_played[1] if self.computer_played else None
-            if not self.first_phase and allowed_suit is not None:
-                if any(card[1] == allowed_suit for card in self.player_hand):
-                    valid = False
-                    num_cards = len(self.player_hand)
-                    total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-                    start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
-                    y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
-                    for i, card in enumerate(self.player_hand):
-                        card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
-                        if card_rect.collidepoint(pos) and card[1] == allowed_suit:
-                            valid = True
-                            self.player_follow(i)
-                            break
-                    if not valid:
-                        self.message = f"You must follow suit ({allowed_suit})."
+        # Determine the allowed suit when in the second phase.
+        allowed_suit = None
+        if not self.first_phase:
+            if self.current_leader == "computer" and self.computer_played:
+                allowed_suit = self.computer_played[1]
+        has_valid = any(card[1] == allowed_suit for card in self.player_hand) if allowed_suit else False
+
+        # Calculate the area for the player's hand.
+        num_cards = len(self.player_hand)
+        total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
+        start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
+        y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
+
+        # Loop over each card in the player's hand to check if it was clicked.
+        for i in range(num_cards):
+            card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
+            if card_rect.collidepoint(pos):
+                # If in second phase and the player must follow suit but clicked a card of a different suit...
+                if not self.first_phase and allowed_suit and has_valid and self.player_hand[i][1] != allowed_suit:
+                    self.message = f"You must follow suit ({allowed_suit})."
+                    # Record the index and current time to trigger the shake animation.
+                    self.shake_card_index = i
+                    self.shake_start_time = pygame.time.get_ticks()
+                    return  # Do not process the invalid click.
+                # Otherwise, process the click normally based on turn.
+                if self.current_leader == "player":
+                    self.player_lead(i)
                 else:
-                    # If no card of the allowed suit, allow any card.
-                    self.player_follow_by_click(pos)
-            else:
-                # In first phase or if no follow-suit is enforced, allow any card.
-                self.player_follow_by_click(pos)
+                    self.player_follow(i)
+                break
 
     def player_lead(self, card_index):
         """
