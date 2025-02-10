@@ -155,6 +155,9 @@ class GamePlay:
         self.shake_card_index = None   # The index of the card to shake (if any)
         self.shake_start_time = 0        # When the shake started (in milliseconds)
         self.shake_duration = 500        # Duration of the shake animation in milliseconds
+        
+        pause_button_rect = pygame.Rect(self.screen_width - MARGIN - 100, MARGIN, 100, 40)
+        self.pause_button = Button(pause_button_rect, "Pause", self.pause_game, pygame.font.SysFont('Arial', 20))
 
     def get_game_state(self):
         """
@@ -349,6 +352,9 @@ class GamePlay:
                     text_surface = pygame.font.SysFont('Arial', 16).render(card_text, True, (0, 0, 0))
                     self.screen.blit(text_surface, (x, y))
                 x += offset
+                
+        # Draw the pause button (for example, at the top right)
+        self.pause_button.draw(self.screen)
 
         # Draw feedback message.
         msg_text = font_small.render(self.message, True, (255, 255, 255))
@@ -358,6 +364,9 @@ class GamePlay:
     def handle_event(self, event):
         if event.type != pygame.MOUSEBUTTONDOWN:
             return
+        
+        # Let the pause button process the event first.
+        self.pause_button.handle_event(event)
 
         # Let the buttons process the event first.
         self.close_button.handle_event(event)
@@ -809,3 +818,8 @@ class GamePlay:
         # Set a flag so that the next card click will be interpreted as the marriage selection.
         self.marriage_pending = True
         self.message = "Marriage pending: click a King or Queen from your hand to announce marriage."
+
+    def pause_game(self):
+        # Call the callback that was passed to GamePlay to change the state.
+        if hasattr(self, 'pause_callback'):
+            self.pause_callback()

@@ -2,7 +2,7 @@ import pygame
 import sys
 
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
-from ui import MainMenu, PlayMenu, EndGameScreen
+from ui import MainMenu, PlayMenu, PauseMenu, EndGameScreen
 from gameplay import GamePlay
 
 # ---------------------------
@@ -21,6 +21,9 @@ class Game:
         self.play_menu = None
         self.gameplay = None
 
+    def go_to_main_menu(self):
+        self.state = "menu"
+
     def go_to_play_menu(self):
         self.state = "play"
         self.play_menu = PlayMenu(self.screen, just_play_callback=self.go_to_gameplay)
@@ -28,6 +31,31 @@ class Game:
     def go_to_gameplay(self):
         self.state = "game"
         self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
+        self.gameplay.pause_callback = self.pause_game  # Set a callback
+
+    def pause_game(self):
+        self.state = "pause"
+        # Create a PauseMenu instance with appropriate callbacks.
+        self.pause_menu = PauseMenu(
+            self.screen,
+            continue_callback=self.resume_game,
+            help_callback=self.show_help,  # You can create a stub for this.
+            restart_callback=self.restart_game,
+            main_menu_callback=self.go_to_main_menu
+        )
+
+    def resume_game(self):
+        self.state = "game"
+
+    def show_help(self):
+        print("Help selected. (This will trigger the same screen as the main menu help later.)")
+
+    def restart_game(self):
+        # For a restart, you can simply reinitialize the gameplay screen.
+        self.state = "game"
+        self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
+        # (Make sure to also reassign pause_callback)
+        self.gameplay.pause_callback = self.pause_game
 
     def end_game(self):
         # Create an instance of EndGameScreen using the overall game points.
@@ -43,17 +71,16 @@ class Game:
         while self.running:
             self.handle_events()
             
-            # Check if we are in the game state.
             if self.state == "game":
-                # If it's the computer's turn (leader) and it hasn't played yet, trigger computer_lead().
+                # If it's the computer's turn (and not paused), trigger computer_lead() if needed.
                 if (self.gameplay.current_leader == "computer" and 
                     not self.gameplay.trick_ready and 
                     self.gameplay.computer_played is None):
                     self.gameplay.computer_lead()
-                # Draw the GamePlay screen.
                 self.gameplay.draw()
+            elif self.state == "pause":
+                self.pause_menu.draw()
             elif self.state == "endgame":
-                # If the game is over, draw the EndGameScreen.
                 self.endgame_screen.draw()
             elif self.state == "menu":
                 self.main_menu.draw()
@@ -74,7 +101,10 @@ class Game:
             elif self.state == "play" and self.play_menu:
                 self.play_menu.handle_events(event)
             elif self.state == "game" and self.gameplay:
+                # Allow the gameplay to handle events (which includes the pause button).
                 self.gameplay.handle_event(event)
+            elif self.state == "pause":
+                self.pause_menu.handle_event(event)
 
     def draw(self):
         if self.state == "menu":

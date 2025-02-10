@@ -174,3 +174,57 @@ class EndGameScreen:
         except Exception as e:
             self.feedback_message = f"Error saving statistics: {e}"
             print(self.feedback_message)
+
+class PauseMenu:
+    def __init__(self, screen, continue_callback, help_callback, restart_callback, main_menu_callback):
+        """
+        :param screen: The pygame display surface.
+        :param continue_callback: Function to call to resume the game.
+        :param help_callback: Function to call for help (currently not functional).
+        :param restart_callback: Function to call to restart the game.
+        :param main_menu_callback: Function to call to return to the main menu.
+        """
+        self.screen = screen
+        self.font = pygame.font.SysFont('Arial', 36)
+        self.button_font = pygame.font.SysFont('Arial', 24)
+        self.continue_callback = continue_callback
+        self.help_callback = help_callback
+        self.restart_callback = restart_callback
+        self.main_menu_callback = main_menu_callback
+        self.buttons = []
+        
+        screen_width, screen_height = self.screen.get_size()
+        button_width = 250
+        button_height = 50
+        spacing = 20
+        start_y = (screen_height - (4 * button_height + 3 * spacing)) // 2
+        start_x = (screen_width - button_width) // 2
+        
+        # Create buttons with appropriate callbacks.
+        self.buttons.append(Button((start_x, start_y, button_width, button_height),
+                                     "Continue", self.continue_callback, self.button_font))
+        self.buttons.append(Button((start_x, start_y + button_height + spacing, button_width, button_height),
+                                     "Help", self.help_callback, self.button_font))
+        self.buttons.append(Button((start_x, start_y + 2*(button_height + spacing), button_width, button_height),
+                                     "Restart Game", self.restart_callback, self.button_font))
+        self.buttons.append(Button((start_x, start_y + 3*(button_height + spacing), button_width, button_height),
+                                     "Main Menu", self.main_menu_callback, self.button_font))
+    
+    def draw(self):
+        # Draw a semi-transparent overlay.
+        overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))  # Black with 150 alpha.
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw a title.
+        title_surface = self.font.render("Paused", True, (255, 255, 255))
+        title_rect = title_surface.get_rect(center=(self.screen.get_width() // 2, 100))
+        self.screen.blit(title_surface, title_rect)
+        
+        # Draw each button.
+        for button in self.buttons:
+            button.draw(self.screen)
+    
+    def handle_event(self, event):
+        for button in self.buttons:
+            button.handle_event(event)
