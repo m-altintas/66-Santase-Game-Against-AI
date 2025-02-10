@@ -18,7 +18,3 @@ CARD_VALUES = {
     "10": 10,
     "A": 11
 }
-
-# Trick ranking orders:
-NORMAL_ORDER = {"A": 6, "10": 5, "K": 4, "Q": 3, "J": 2, "9": 1}
-TRUMP_ORDER = {"9": 6, "A": 5, "10": 4, "K": 3, "Q": 2, "J": 1}

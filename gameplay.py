@@ -2,7 +2,7 @@ import pygame
 import random
 import math
 
-from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES, NORMAL_ORDER, TRUMP_ORDER
+from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES
 from ui import Button
 from ai import JustRandom
 
@@ -536,28 +536,53 @@ class GamePlay:
 
     def determine_trick_winner(self, player_card, computer_card):
         """
-        Determine trick winner using Santase rules.
-        The first card played sets the lead suit.
-        A trump card beats any non-trump.
-        If both cards are trump (or both non-trump), compare using the appropriate order.
-        If the follower does not follow suit while having the option, the leader wins.
+        Determine the trick winner based solely on the CARD_VALUES.
+        
+        Rules:
+        - The leader is the first card played (its suit defines the lead suit).
+        - A trump card (i.e. one whose suit equals self.trump_suit) beats any non-trump.
+        - If both cards are trump or both are non-trump:
+            - If the follower's card does not follow the lead suit, the leader wins.
+            - Otherwise, the card with the higher point value (from CARD_VALUES) wins.
+            - In case of equal values, the leader wins by default.
+        
+        Returns:
+            "player" or "computer" indicating the winner of the trick.
         """
-        lead_suit = player_card[1] if self.current_leader == "player" else computer_card[1]
         trump = self.trump_suit
 
-        if player_card[1] == trump and computer_card[1] != trump:
-            return "player"
-        if computer_card[1] == trump and player_card[1] != trump:
-            return "computer"
-        if player_card[1] == trump and computer_card[1] == trump:
-            return "player" if TRUMP_ORDER[player_card[0]] > TRUMP_ORDER[computer_card[0]] else "computer"
+        # Identify leader and follower based on who started the trick.
         if self.current_leader == "player":
-            if computer_card[1] != lead_suit:
-                return "player"
+            leader_card = player_card
+            follower_card = computer_card
+            leader = "player"
+            follower = "computer"
         else:
-            if player_card[1] != lead_suit:
-                return "computer"
-        return "player" if NORMAL_ORDER[player_card[0]] > NORMAL_ORDER[computer_card[0]] else "computer"
+            leader_card = computer_card
+            follower_card = player_card
+            leader = "computer"
+            follower = "player"
+
+        # The lead suit is defined by the leader's card.
+        lead_suit = leader_card[1]
+
+        # Rule 1: If one card is trump and the other is not, trump wins.
+        if leader_card[1] == trump and follower_card[1] != trump:
+            return leader
+        if follower_card[1] == trump and leader_card[1] != trump:
+            return follower
+
+        # Rule 2(a): If neither card is trump (or both are trump) and the follower did not follow suit,
+        # then the leader wins.
+        if follower_card[1] != lead_suit:
+            return leader
+
+        # Rule 2(b): Both cards are of the lead suit (or both are trump), so compare point values.
+        if CARD_VALUES[leader_card[0]] >= CARD_VALUES[follower_card[0]]:
+            return leader
+        else:
+            return follower
+
 
     def draw_cards(self, trick_winner):
         """
