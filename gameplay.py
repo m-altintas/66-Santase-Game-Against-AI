@@ -160,7 +160,7 @@ class GamePlay:
         """
         Return a dictionary with current game state details.
         """
-        return {
+        state = {
             "player_played": self.player_played,
             "player_round_points": self.player_round_points,
             "computer_round_points": self.computer_round_points,
@@ -170,8 +170,11 @@ class GamePlay:
             "computer_hand": self.computer_hand.copy(),
             "player_hand": self.player_hand.copy(),
             "first_phase": self.first_phase,
-            "current_leader": self.current_leader
+            "current_leader": self.current_leader,
+            "allowed_suit": self.player_played[1] if self.current_leader == "player" else None,
+            "trump_suit": self.trump_suit
         }
+        return state
 
     def draw(self):
         # Draw the background.
