@@ -84,6 +84,9 @@ class GamePlay:
         self.player_game_points = 0
         self.computer_game_points = 0
         
+        # Add a flag to indicate that an animation is ongoing.
+        self.ongoing_animation = False
+        
         self.marriage_pending = False       # Waiting for human to select a card for marriage
         self.marriage_announcement = None     # Will hold a tuple of the two cards forming the marriage
         self.marriage_time = None             # Timestamp when marriage was announced
@@ -254,9 +257,11 @@ class GamePlay:
                 self.screen.blit(card_img, pos)
 
         # --- Draw Marriage Announcement, Played Cards, Deck, Buttons, etc. ---
+        # Draw marriage announcement if active.
         if self.marriage_announcement is not None:
             current_time = pygame.time.get_ticks()
             if current_time - self.marriage_time < 3000:
+                # During the 3-second animation, draw the marriage announcement.
                 card1, card2 = self.marriage_announcement
                 img1 = self.card_images.get(card1)
                 img2 = self.card_images.get(card2)
@@ -266,8 +271,12 @@ class GamePlay:
                     y = self.C_rect.centery - CARD_HEIGHT // 2
                     self.screen.blit(img1, (x, y))
                     self.screen.blit(img2, (x + CARD_WIDTH + 10, y))
+                # Ensure input remains blocked.
+                self.ongoing_animation = True
             else:
+                # After 3 seconds, clear the marriage announcement and allow input.
                 self.marriage_announcement = None
+                self.ongoing_animation = False
 
         # Draw played cards (Zone C).
         if self.computer_played:
@@ -362,13 +371,16 @@ class GamePlay:
         self.screen.blit(msg_text, msg_rect)
 
     def handle_event(self, event):
+        # If an animation (such as a marriage announcement) is ongoing, ignore move events.
+        # (You might want to let non–move events pass through; adjust as needed.)
+        if self.ongoing_animation:
+            return
+
         if event.type != pygame.MOUSEBUTTONDOWN:
             return
-        
-        # Let the pause button process the event first.
-        self.pause_button.handle_event(event)
 
         # Let the buttons process the event first.
+        self.pause_button.handle_event(event)
         self.close_button.handle_event(event)
         self.switch_button.handle_event(event)
         self.marriage_button.handle_event(event)
@@ -385,12 +397,11 @@ class GamePlay:
         if self.trick_ready:
             return
 
-        # Determine the allowed suit when in the second phase.
+        # Determine the allowed suit when in second phase.
         allowed_suit = None
         if not self.first_phase and self.current_leader == "computer" and self.computer_played:
             allowed_suit = self.computer_played[1]
 
-        # Determine what valid moves are based on the player's hand.
         if allowed_suit:
             player_has_follow = any(card[1] == allowed_suit for card in self.player_hand)
             player_has_trump = any(card[1] == self.trump_suit for card in self.player_hand)
@@ -407,34 +418,32 @@ class GamePlay:
         for i in range(num_cards):
             card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
             if card_rect.collidepoint(pos):
-                # If a marriage announcement is pending, handle that first.
+                # If a marriage announcement is pending for the player, handle that first.
                 if self.marriage_pending:
                     selected_card = self.player_hand[i]
-                    # Check if the card is eligible for marriage (must be "K" or "Q").
+                    # If the card is not eligible (not "K" or "Q"), cancel the marriage.
                     if selected_card[0] not in ("K", "Q"):
                         self.marriage_pending = False
-                        self.message = "Invalid card selection for marriage. Marriage cancelled."
-                        return  # Cancel the marriage announcement.
+                        self.message = "Marriage cancelled."
+                        return  # Cancel the pending marriage.
                     suit = selected_card[1]
-                    # Cancel if marriage for this suit has already been announced.
                     if suit in self.player_marriages_announced:
                         self.marriage_pending = False
-                        self.message = f"Marriage for suit {suit} has already been announced. Marriage cancelled."
+                        self.message = f"Marriage for {suit} has already been announced. Marriage cancelled."
                         return
-                    # Determine the required partner: if King then partner must be Queen; if Queen then partner must be King.
                     if selected_card[0] == "K":
                         partner = ("Q", suit)
-                    elif selected_card[0] == "Q":
+                    else:
                         partner = ("K", suit)
-                    # If the matching partner is not in the hand, cancel marriage.
                     if partner not in self.player_hand:
                         self.marriage_pending = False
-                        self.message = "You don't have the matching card for marriage. Marriage cancelled."
+                        self.message = "Matching card for marriage not found. Marriage cancelled."
                         return
-                    # Valid marriage: record the announcement.
+                    # Valid marriage: record the announcement and start the animation.
                     self.marriage_announcement = (selected_card, partner)
                     self.marriage_time = pygame.time.get_ticks()
                     self.marriage_pending = False
+                    self.ongoing_animation = True  # Block further input until animation ends.
                     self.player_marriages_announced.add(suit)
                     points = 40 if suit == self.trump_suit else 20
                     self.player_round_points += points
@@ -444,10 +453,6 @@ class GamePlay:
                 # Otherwise, process the card as a normal move.
                 valid_move = True
                 if not self.first_phase and allowed_suit:
-                    # When following in the second phase:
-                    # - If the player holds cards of the led suit and trump cards, they may play either.
-                    # - If they have only cards of the led suit, they must play one.
-                    # - If they have only trump cards, they must play one.
                     if player_has_follow and player_has_trump:
                         valid_move = (self.player_hand[i][1] == allowed_suit or self.player_hand[i][1] == self.trump_suit)
                     elif player_has_follow:
@@ -462,7 +467,6 @@ class GamePlay:
                     if player_has_trump:
                         msg += " or a trump card"
                     self.message = msg + "."
-                    # Trigger the shake animation for this card.
                     self.shake_card_index = i
                     self.shake_start_time = pygame.time.get_ticks()
                     return
