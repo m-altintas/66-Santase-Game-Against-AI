@@ -193,40 +193,59 @@ class GamePlay:
             start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
             y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
 
-            # Determine allowed suit when in second phase and player is following.
+            # Determine the allowed suit when in second phase.
+            # (Assume that when the computer is leading, its played card defines the led suit.)
             allowed_suit = None
-            if not self.first_phase:
-                if self.current_leader == "computer" and self.computer_played:
-                    allowed_suit = self.computer_played[1]
-            has_valid = any(card[1] == allowed_suit for card in self.player_hand) if allowed_suit else False
+            if not self.first_phase and self.current_leader == "computer" and self.computer_played:
+                allowed_suit = self.computer_played[1]
+
+            # Determine what valid moves are.
+            # (player_has_follow: does the player hold a card of the led suit?
+            #  player_has_trump: does the player hold any trump cards?)
+            if allowed_suit:
+                player_has_follow = any(card[1] == allowed_suit for card in self.player_hand)
+                player_has_trump = any(card[1] == self.trump_suit for card in self.player_hand)
+            else:
+                player_has_follow = False
+                player_has_trump = False
 
             for i, card in enumerate(self.player_hand):
                 pos_x = start_x + i * (CARD_WIDTH + CARD_SPACING)
 
-                # If this card is set to shake (invalid click), calculate a shake offset.
+                # --- Apply Shake Animation if this card was clicked invalidly ---
                 if self.shake_card_index is not None and i == self.shake_card_index:
                     elapsed = pygame.time.get_ticks() - self.shake_start_time
                     if elapsed < self.shake_duration:
-                        # Use a sine function for a smooth oscillation; adjust magnitude (10) as needed.
+                        # Oscillate using a sine function (adjust magnitude as needed).
                         offset = int(10 * math.sin((elapsed / 50.0) * math.pi))
                         pos_x += offset
                     else:
-                        # Shake is done; reset the shake variables.
                         self.shake_card_index = None
 
                 pos = (pos_x, y)
                 card_img = self.card_images.get(card)
 
-                # In second phase: if an allowed suit is required and the player holds valid card(s),
-                # grey out cards that do not match the allowed suit.
-                if not self.first_phase and allowed_suit and has_valid and card[1] != allowed_suit:
-                    card_img = card_img.copy()  # Make a copy so the original image isn’t modified.
-                    card_img.set_alpha(100)     # Lower opacity (adjust value as needed).
+                # --- Determine whether this card is a valid move ---
+                valid_move = True
+                if not self.first_phase and allowed_suit:
+                    # If the player has both cards in the led suit and trump cards, allow either.
+                    if player_has_follow and player_has_trump:
+                        valid_move = (card[1] == allowed_suit or card[1] == self.trump_suit)
+                    elif player_has_follow:
+                        valid_move = (card[1] == allowed_suit)
+                    elif player_has_trump:
+                        valid_move = (card[1] == self.trump_suit)
+                    else:
+                        valid_move = True  # Should not occur—if allowed_suit is defined, one of these should be true.
+                
+                # Grey out invalid cards.
+                if not valid_move:
+                    card_img = card_img.copy()
+                    card_img.set_alpha(100)
 
                 self.screen.blit(card_img, pos)
 
-        # --- Draw the Marriage Announcement, Played Cards, Deck, Buttons, etc. ---
-        # (Keep your existing drawing code below here.)
+        # --- Draw Marriage Announcement, Played Cards, Deck, Buttons, etc. ---
         if self.marriage_announcement is not None:
             current_time = pygame.time.get_ticks()
             if current_time - self.marriage_time < 3000:
@@ -261,7 +280,6 @@ class GamePlay:
         self.screen.blit(et_text, et_rect)
 
         # Draw deck (Zone I), trump card (Zone H), remaining deck count (Zone J), and other UI elements.
-        # (Retain your existing drawing code for these zones.)
         if self.deck:
             deck_img = pygame.transform.scale(self.card_back, (self.I_rect.width, self.I_rect.height))
             self.screen.blit(deck_img, (self.I_rect.x, self.I_rect.y))
@@ -277,7 +295,7 @@ class GamePlay:
         count_rect = count_text.get_rect(center=self.J_rect.center)
         self.screen.blit(count_text, count_rect)
 
-        # Draw the additional buttons.
+        # Draw additional buttons.
         if self.first_phase:
             self.close_button.draw(self.screen)
         else:
@@ -329,14 +347,14 @@ class GamePlay:
 
         # Draw feedback message.
         msg_text = font_small.render(self.message, True, (255, 255, 255))
-        msg_rect = msg_text.get_rect(center=(self.screen_width//2, self.B_rect.y - 30))
+        msg_rect = msg_text.get_rect(center=(self.screen_width // 2, self.B_rect.y - 30))
         self.screen.blit(msg_text, msg_rect)
 
     def handle_event(self, event):
         if event.type != pygame.MOUSEBUTTONDOWN:
             return
 
-        # Let buttons process the event first.
+        # Let the buttons process the event first.
         self.close_button.handle_event(event)
         self.switch_button.handle_event(event)
         self.marriage_button.handle_event(event)
@@ -349,35 +367,55 @@ class GamePlay:
                 self.resolve_trick()
             return
 
-        # If a trick is in progress, ignore additional clicks.
+        # If a trick is in progress, ignore further clicks.
         if self.trick_ready:
             return
 
-        # Determine the allowed suit when in the second phase.
+        # Determine the allowed suit when in second phase.
         allowed_suit = None
-        if not self.first_phase:
-            if self.current_leader == "computer" and self.computer_played:
-                allowed_suit = self.computer_played[1]
-        has_valid = any(card[1] == allowed_suit for card in self.player_hand) if allowed_suit else False
+        if not self.first_phase and self.current_leader == "computer" and self.computer_played:
+            allowed_suit = self.computer_played[1]
 
-        # Calculate the area for the player's hand.
+        # Determine what valid moves are.
+        if allowed_suit:
+            player_has_follow = any(card[1] == allowed_suit for card in self.player_hand)
+            player_has_trump = any(card[1] == self.trump_suit for card in self.player_hand)
+        else:
+            player_has_follow = False
+            player_has_trump = False
+
         num_cards = len(self.player_hand)
         total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
         start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
         y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
 
-        # Loop over each card in the player's hand to check if it was clicked.
+        # Loop over each card in the player's hand to see if it was clicked.
         for i in range(num_cards):
             card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
             if card_rect.collidepoint(pos):
-                # If in second phase and the player must follow suit but clicked a card of a different suit...
-                if not self.first_phase and allowed_suit and has_valid and self.player_hand[i][1] != allowed_suit:
-                    self.message = f"You must follow suit ({allowed_suit})."
-                    # Record the index and current time to trigger the shake animation.
+                valid_move = True
+                if not self.first_phase and allowed_suit:
+                    # If the player has both cards of the led suit and trump cards, allow either.
+                    if player_has_follow and player_has_trump:
+                        valid_move = (self.player_hand[i][1] == allowed_suit or self.player_hand[i][1] == self.trump_suit)
+                    elif player_has_follow:
+                        valid_move = (self.player_hand[i][1] == allowed_suit)
+                    elif player_has_trump:
+                        valid_move = (self.player_hand[i][1] == self.trump_suit)
+                    else:
+                        valid_move = True
+
+                if not valid_move:
+                    msg = f"You must play a {allowed_suit} card"
+                    if player_has_trump:
+                        msg += " or a trump card"
+                    self.message = msg + "."
+                    # Trigger the shake animation for this card.
                     self.shake_card_index = i
                     self.shake_start_time = pygame.time.get_ticks()
                     return  # Do not process the invalid click.
-                # Otherwise, process the click normally based on turn.
+
+                # If the move is valid, process it according to whose turn it is.
                 if self.current_leader == "player":
                     self.player_lead(i)
                 else:
