@@ -92,6 +92,8 @@ class GamePlay:
         
         self.player_won_cards = []
         self.computer_won_cards = []
+        
+        self.game_closed = False
 
         # Feedback message.
         self.message = "Your turn to lead."
@@ -655,36 +657,88 @@ class GamePlay:
 
     def check_round_end(self):
         """
-        Check if a player has reached 66 round points.
-        Award game points based on margins and reset the round if necessary.
+        Revised round–end check.
+        The round now ends only when both players' hands are empty.
+        Game points are awarded as follows:
+        - If either player has 66 or more points:
+            • If the losing side has less than 33 points → winner gets 2 game points.
+            • If the losing side has won 0 tricks → winner gets 3 game points.
+            • Otherwise → winner gets 1 game point.
+        - If neither player reaches 66, the player with the highest points gets 1 game point.
+        - If the player closed the game but did not reach 66, the opponent gets 1 game point as a penalty.
         """
+        # Only check for round end when both hands are empty.
+        if len(self.player_hand) > 0 or len(self.computer_hand) > 0:
+            return  # Round is not over yet.
+
+        # --- Round has ended because both hands are empty. ---
+
+        # First, handle the case where the game was closed.
+        if self.game_closed:
+            # Assume only the human can close the game.
+            if self.player_round_points < 66:
+                # The human closed but did not reach 66; award 1 game point to the computer.
+                self.computer_game_points += 1
+                self.message = "You closed the game but didn't reach 66. Computer gets 1 game point as penalty."
+                # Reset the flag for the next round.
+                self.game_closed = False
+                # End the round.
+                if self.player_game_points >= 11 or self.computer_game_points >= 11:
+                    self.message += " Game Over."
+                    self.end_game_callback()
+                else:
+                    self.reset_round()
+                return
+            else:
+                # If closed and the human did reach 66, then clear the flag and continue with normal scoring.
+                self.game_closed = False
+
+        # Now, determine scoring based on round points.
         if self.player_round_points >= 66 or self.computer_round_points >= 66:
+            # At least one player reached 66.
             if self.player_round_points > self.computer_round_points:
                 winner = "player"
-                diff = self.computer_round_points
+                loser_points = self.computer_round_points
+                loser_tricks = self.computer_tricks
             else:
                 winner = "computer"
-                diff = self.player_round_points
+                loser_points = self.player_round_points
+                loser_tricks = self.player_tricks
 
-            if diff < 33:
-                game_points = 2
-            elif diff == 0:
+            # Apply the game point rules.
+            if loser_tricks == 0:
                 game_points = 3
+            elif loser_points < 33:
+                game_points = 2
             else:
                 game_points = 1
+        else:
+            # Neither player reached 66.
+            if self.player_round_points > self.computer_round_points:
+                winner = "player"
+            elif self.computer_round_points > self.player_round_points:
+                winner = "computer"
+            else:
+                winner = None  # A tie.
+            game_points = 1
 
+        # Award game points.
+        if winner:
             if winner == "player":
                 self.player_game_points += game_points
                 self.message = f"You win the round! (+{game_points} game point)"
             else:
                 self.computer_game_points += game_points
                 self.message = f"Computer wins the round! (+{game_points} game point)"
+        else:
+            self.message = "Round ended in a tie. No game points awarded."
 
-            if self.player_game_points >= 11 or self.computer_game_points >= 11:
-                self.message += " Game Over."
-                self.end_game_callback()
-            else:
-                self.reset_round()
+        # Check for overall game end.
+        if self.player_game_points >= 11 or self.computer_game_points >= 11:
+            self.message += " Game Over."
+            self.end_game_callback()
+        else:
+            self.reset_round()
 
     def reset_round(self):
         """
@@ -714,14 +768,16 @@ class GamePlay:
         self.computer_marriages_announced = set()
         self.player_won_cards = []
         self.computer_won_cards = []
+        self.game_closed = False
         self.message += " New round started. Your turn to lead."
 
     def close_game(self):
         """
-        Called when the player chooses to close the game.
-        This disables drawing from the deck and switches to second phase.
+        Called when the player clicks the "Close" button.
+        This stops drawing from the deck and marks that the game was closed.
         """
         self.first_phase = False
+        self.game_closed = True  # Mark that the human closed the game.
         self.message = "You closed the game. Now in second phase, follow suit if possible."
 
     def switch_trump(self):
