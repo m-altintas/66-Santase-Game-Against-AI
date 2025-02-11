@@ -29,7 +29,7 @@ class Button:
 # MainMenu and PlayMenu Definitions
 # ---------------------------
 class MainMenu:
-    def __init__(self, screen, play_callback):
+    def __init__(self, screen, play_callback, help_callback):
         self.screen = screen
         self.font = pygame.font.SysFont('Arial', 36)
         self.button_font = pygame.font.SysFont('Arial', 24)
@@ -41,13 +41,16 @@ class MainMenu:
         button_x = (screen_width - button_width) // 2
         start_y = (screen_height // 2) - button_height - 20
         spacing = 20
+        
+        self.play_callback = play_callback
+        self.help_callback = help_callback
 
         self.buttons.append(Button(
             (button_x, start_y, button_width, button_height),
-            "Play", play_callback, self.button_font))
+            "Play", self.play_callback, self.button_font))
         self.buttons.append(Button(
             (button_x, start_y + button_height + spacing, button_width, button_height),
-            "Help", lambda: print("Help button clicked"), self.button_font))
+            "Help", self.help_callback, self.button_font))
         self.buttons.append(Button(
             (button_x, start_y + 2*(button_height + spacing), button_width, button_height),
             "Settings", lambda: print("Settings button clicked"), self.button_font))
@@ -228,3 +231,120 @@ class PauseMenu:
     def handle_event(self, event):
         for button in self.buttons:
             button.handle_event(event)
+            
+class HelpScreen:
+    def __init__(self, screen, go_back_callback):
+        """
+        :param screen: The pygame display surface.
+        :param go_back_callback: Function to call when the user clicks "Go Back".
+        """
+        self.screen = screen
+        self.go_back_callback = go_back_callback
+        
+        # Fonts for title, text, and button.
+        self.font_title = pygame.font.SysFont("Arial", 48)
+        self.font_text = pygame.font.SysFont("Arial", 24)
+        self.font_button = pygame.font.SysFont("Arial", 20)
+        
+        # Comprehensive help text explaining the rules.
+        self.help_text = (
+            "Santase (66) - Rules and How to Play\n\n"
+            "Overview:\n"
+            "  This is a two-player game played against a computer opponent. "
+            "The game uses a 24-card deck (cards: 9, J, Q, K, 10, A in four suits).\n\n"
+            "Game Phases:\n"
+            "  1. First Phase: Cards are dealt in rounds and after each trick, "
+            "the winner draws a card first and the loser next.\nThe trump card is revealed "
+            "and its suit becomes the trump suit. In this phase, players draw cards.\n"
+            "  2. Second Phase: Once the deck is exhausted or the player 'closes' the game, "
+            "no further cards are drawn.\nThe follower must either follow suit if possible or play "
+            "a trump card if available. If neither is available, any card may be played\n(though it will likely lose the trick).\n\n"
+            "Trick Resolution & Scoring:\n"
+            "  - Card point values: 9=0, J=2, Q=3, K=4, 10=10, A=11.\n"
+            "  - When both cards follow suit (or both are trump), the card with the higher point value wins. "
+            "If one card is trump and the other isn’t,\nthe trump wins. If the follower fails to follow suit when "
+            "able, the leader wins automatically.\n\n"
+            "Special Moves:\n"
+            "  - Marriage Announcement: If you hold both a King and Queen of the same suit, you may announce a marriage. "
+            "If the suit is trump,\nyou gain 40 points; otherwise, 20 points. Each suit can be used for marriage only once per round.\n"
+            "  - Trump 9 Switch: When leading, if you have the trump 9, you may swap it with the current trump card.\n\n"
+            "Round & Game Scoring:\n"
+            "  - A round ends when both players’ hands are empty. Then, game points are awarded based on the margin:\n"
+            "      • If a player has 66+ points and the opponent has between 33 and 66 (or both have 66+), the winner gets 1 game point.\n"
+            "      • If one player has 66+ and the opponent has less than 33, the winner gets 2 game points.\n"
+            "      • If one player has 66+ and the opponent hasn’t won any tricks, the winner gets 3 game points.\n"
+            "      • If a player closes the game expecting to reach 66 but fails, the opponent is awarded 1 game point as a penalty.\n"
+            "      • If neither player reaches 66, the player with the higher points gets 1 game point.\n"
+            "  - The overall game ends when one player reaches 11 game points.\n\n"
+            "User Interface:\n"
+            "  - Main Menu: Access options such as Play, Help, and Settings.\n"
+            "  - Play Menu: Start a game against a computer opponent.\n"
+            "  - Gameplay: The computer’s hand is shown at the top (face-down), your hand at the bottom (face-up), "
+            "and the played cards in the center.\nSpecial buttons let you announce marriage, switch trump, or close the game.\n"
+            "  - Pause Menu: Accessible via the top-right of the gameplay screen; it allows you to continue, get help, restart the game,\nor return to the main menu.\n\n"
+            "Controls:\n"
+            "  - Click on cards to play them, following the rules about following suit and playing trump cards when required.\n"
+            "  - Use on-screen buttons for special moves and menu options.\n\n"
+            "Enjoy the game and good luck!"
+        )
+        
+        # Preprocess the help text by splitting into lines.
+        self.lines = self.help_text.split("\n")
+        self.line_height = self.font_text.get_linesize()
+        self.content_height = len(self.lines) * self.line_height
+        
+        # Define the view rectangle (the area where text will be displayed).
+        # Here, we leave some margins: 40 pixels on each side and from top/bottom.
+        self.view_rect = pygame.Rect(40, 120, self.screen.get_width() - 80, self.screen.get_height() - 160)
+        
+        # Scroll offset starts at 0.
+        self.scroll_offset = 0
+        # Maximum scroll offset so that we don't scroll past the text.
+        self.max_scroll = max(0, self.content_height - self.view_rect.height)
+        
+        # Create a "Go Back" button at the top left.
+        self.back_button = Button((20, 20, 120, 40), "Go Back", self.go_back_callback, self.font_button)
+    
+    def draw(self):
+        # Fill the background with a dark color.
+        self.screen.fill((30, 30, 30))
+        
+        # Draw the title at the top center.
+        title_surface = self.font_title.render("Help & Rules", True, (255, 255, 255))
+        title_rect = title_surface.get_rect(center=(self.screen.get_width() // 2, 60))
+        self.screen.blit(title_surface, title_rect)
+        
+        # Draw the help text inside the view_rect.
+        # We only draw lines that fall within the viewable area.
+        y = self.view_rect.y - self.scroll_offset
+        for line in self.lines:
+            # Only draw the line if it is at least partially within the view_rect.
+            if y + self.line_height > self.view_rect.y and y < self.view_rect.y + self.view_rect.height:
+                line_surface = self.font_text.render(line, True, (200, 200, 200))
+                self.screen.blit(line_surface, (self.view_rect.x, y))
+            y += self.line_height
+        
+        # Draw a border around the text view (optional).
+        pygame.draw.rect(self.screen, (100, 100, 100), self.view_rect, 2)
+        
+        # Draw the "Go Back" button.
+        self.back_button.draw(self.screen)
+    
+    def handle_event(self, event):
+        # Let the "Go Back" button process its events.
+        self.back_button.handle_event(event)
+        
+        # Process keyboard events for scrolling.
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                self.scroll_offset = max(0, self.scroll_offset - self.line_height)
+            elif event.key == pygame.K_DOWN:
+                self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.line_height)
+        
+        # Process mouse wheel events (in many systems, button 4 is scroll up and button 5 is scroll down).
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 4:  # Scroll up.
+                self.scroll_offset = max(0, self.scroll_offset - self.line_height)
+            elif event.button == 5:  # Scroll down.
+                self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.line_height)
+        self.back_button.handle_event(event)

@@ -2,7 +2,7 @@ import pygame
 import sys
 
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
-from ui import MainMenu, PlayMenu, PauseMenu, EndGameScreen
+from ui import MainMenu, PlayMenu, PauseMenu, HelpScreen, EndGameScreen
 from gameplay import GamePlay
 
 # ---------------------------
@@ -17,7 +17,7 @@ class Game:
         self.running = True
 
         self.state = "menu"
-        self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu)
+        self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu, help_callback=self.show_help_from_main)
         self.play_menu = None
         self.gameplay = None
 
@@ -39,7 +39,7 @@ class Game:
         self.pause_menu = PauseMenu(
             self.screen,
             continue_callback=self.resume_game,
-            help_callback=self.show_help,  # You can create a stub for this.
+            help_callback=self.show_help_from_pause,
             restart_callback=self.restart_game,
             main_menu_callback=self.go_to_main_menu
         )
@@ -47,9 +47,17 @@ class Game:
     def resume_game(self):
         self.state = "game"
 
-    def show_help(self):
-        print("Help selected. (This will trigger the same screen as the main menu help later.)")
+    def show_help_from_main(self):
+        self.state = "help"
+        self.help_screen = HelpScreen(self.screen, go_back_callback=self.go_to_main_menu)
 
+    def show_help_from_pause(self):
+        self.state = "help"
+        self.help_screen = HelpScreen(self.screen, go_back_callback=self.resume_pause_menu)
+        
+    def resume_pause_menu(self):
+        self.state = "pause"
+    
     def restart_game(self):
         # For a restart, you can simply reinitialize the gameplay screen.
         self.state = "game"
@@ -70,23 +78,18 @@ class Game:
     def run(self):
         while self.running:
             self.handle_events()
-            
             if self.state == "game":
-                # If it's the computer's turn (and not paused), trigger computer_lead() if needed.
-                if (self.gameplay.current_leader == "computer" and 
-                    not self.gameplay.trick_ready and 
-                    self.gameplay.computer_played is None):
-                    self.gameplay.computer_lead()
                 self.gameplay.draw()
             elif self.state == "pause":
                 self.pause_menu.draw()
-            elif self.state == "endgame":
-                self.endgame_screen.draw()
             elif self.state == "menu":
                 self.main_menu.draw()
+            elif self.state == "help":
+                self.help_screen.draw()
             elif self.state == "play":
                 self.play_menu.draw()
-            
+            elif self.state == "endgame":
+                self.endgame_screen.draw()
             pygame.display.flip()
             self.clock.tick(60)
 
@@ -94,17 +97,18 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if self.state == "endgame":
-                self.endgame_screen.handle_event(event)
-            elif self.state == "menu":
-                self.main_menu.handle_events(event)
-            elif self.state == "play" and self.play_menu:
-                self.play_menu.handle_events(event)
-            elif self.state == "game" and self.gameplay:
-                # Allow the gameplay to handle events (which includes the pause button).
+            if self.state == "game":
                 self.gameplay.handle_event(event)
             elif self.state == "pause":
                 self.pause_menu.handle_event(event)
+            elif self.state == "menu":
+                self.main_menu.handle_events(event)
+            elif self.state == "help":
+                self.help_screen.handle_event(event)
+            elif self.state == "play":
+                self.play_menu.handle_events(event)
+            elif self.state == "endgame":
+                self.endgame_screen.handle_event(event)
 
     def draw(self):
         if self.state == "menu":
