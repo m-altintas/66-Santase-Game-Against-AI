@@ -17,7 +17,7 @@ class GamePlay:
 
         # Load background image (or fallback)
         try:
-            self.background = pygame.image.load("backgrounds/game_background.jpg")
+            self.background = pygame.image.load("assets/backgrounds/game_background.jpg")
             self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
         except Exception as e:
             print("Error loading background:", e)
@@ -26,7 +26,7 @@ class GamePlay:
 
         # Load card back image.
         try:
-            self.card_back = pygame.image.load("cards/back.png")
+            self.card_back = pygame.image.load("assets/cards/back.png")
             self.card_back = pygame.transform.scale(self.card_back, (CARD_WIDTH, CARD_HEIGHT))
         except Exception as e:
             print("Error loading card back:", e)
@@ -39,7 +39,7 @@ class GamePlay:
         self.suits = ["H", "D", "C", "S"]
         for suit in self.suits:
             for rank in self.ranks:
-                filename = f"cards/{rank}{suit}.png"
+                filename = f"assets/cards/{rank}{suit}.png"
                 try:
                     img = pygame.image.load(filename)
                     img = pygame.transform.scale(img, (CARD_WIDTH, CARD_HEIGHT))
