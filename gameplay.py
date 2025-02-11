@@ -2,7 +2,7 @@ import pygame
 import random
 import math
 
-from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES
+from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES, MARRIAGE_DONE_EVENT
 from ui import Button
 from ai import JustRandom
 
@@ -92,6 +92,7 @@ class GamePlay:
         self.marriage_time = None             # Timestamp when marriage was announced
         self.player_marriages_announced = set()      # A set of suits already announced by the human.
         self.computer_marriages_announced = set()    # A set of suits already announced by the computer.
+        self.computer_marriage_processed = False  # Temporary flag for the current trick
         
         self.player_won_cards = []
         self.computer_won_cards = []
@@ -515,22 +516,18 @@ class GamePlay:
     def computer_lead(self):
         current_time = pygame.time.get_ticks()
         
-        # If there is a pending marriage announcement, wait until 3 seconds have passed.
+        # If a marriage announcement is active, wait until the 3-second period is over.
         if self.marriage_announcement is not None:
             delta = current_time - self.marriage_time
-            print("DEBUG: current_time:", current_time, "marriage_time:", self.marriage_time, "delta:", delta)
             if delta < 3000:
                 self.message = "Computer announced marriage. Waiting to lead..."
-                return  # Wait until the marriage display period is over.
+                return  # Do not lead until the announcement is cleared.
             else:
-                # Once 5 seconds have passed, mark that marriage as handled:
-                # Add the announced suit to the set so it won’t be re-announced.
-                suit_announced = self.marriage_announcement[0][1]
-                self.computer_marriages_announced.add(suit_announced)
+                # (The timer event should normally clear the announcement, but as a fallback:)
                 self.marriage_announcement = None
 
-        # If no marriage is pending, check for a valid marriage.
-        if self.marriage_announcement is None:
+        # Only check for a new marriage if one has not already been processed for this trick.
+        if not self.computer_marriage_processed:
             marriage_found = None
             for suit in self.suits:
                 if suit in self.computer_marriages_announced:
@@ -544,10 +541,11 @@ class GamePlay:
                 points = 40 if marriage_found[0][1] == self.trump_suit else 20
                 self.computer_round_points += points
                 self.message = f"Computer announces marriage in {marriage_found[0][1]}! +{points} points."
-                print("DEBUG: Computer announced marriage:", marriage_found)
-                return  # Delay leading until the marriage announcement is displayed.
-        
-        # Otherwise, proceed to lead normally.
+                # Schedule a timer event to clear the announcement after 3000ms.
+                pygame.time.set_timer(MARRIAGE_DONE_EVENT, 3000)
+                return  # Do not lead a card until the timer clears the announcement.
+
+        # If no marriage is announced (or it has already been processed), lead normally.
         state = self.get_game_state()
         self.computer_played = self.opponent.play(state, self.computer_hand)
         self.current_leader = "computer"
@@ -782,6 +780,7 @@ class GamePlay:
         self.marriage_time = None
         self.player_marriages_announced = set()
         self.computer_marriages_announced = set()
+        self.computer_marriage_processed = False
         self.player_won_cards = []
         self.computer_won_cards = []
         self.game_closed = False

@@ -1,3 +1,5 @@
+import pygame
+
 # ---------------------------
 # Constants
 # ---------------------------
@@ -18,3 +20,5 @@ CARD_VALUES = {
     "10": 10,
     "A": 11
 }
+
+MARRIAGE_DONE_EVENT = pygame.USEREVENT + 5
