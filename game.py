@@ -1,7 +1,7 @@
 import pygame
 import sys
 
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from constants import SCREEN_WIDTH, SCREEN_HEIGHT, MARRIAGE_DONE_EVENT
 from ui import MainMenu, PlayMenu, PauseMenu, HelpScreen, EndGameScreen
 from gameplay import GamePlay
 
@@ -97,7 +97,23 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if self.state == "game":
+
+            # Handle the marriage timer event.
+            if event.type == MARRIAGE_DONE_EVENT:
+                # Clear the marriage announcement.
+                if self.gameplay.marriage_announcement is not None:
+                    self.gameplay.marriage_announcement = None
+                # Cancel the timer.
+                pygame.time.set_timer(MARRIAGE_DONE_EVENT, 0)
+                # Mark that the computer has already processed its marriage this trick.
+                self.gameplay.computer_marriage_processed = True
+                # Force the computer to resume its turn if it is still the leader.
+                if self.gameplay.current_leader == "computer" and self.gameplay.computer_played is None:
+                    self.gameplay.computer_lead()
+                continue
+
+            # Then process events for your current state.
+            if self.state == "game" and self.gameplay:
                 self.gameplay.handle_event(event)
             elif self.state == "pause":
                 self.pause_menu.handle_event(event)
@@ -105,7 +121,7 @@ class Game:
                 self.main_menu.handle_events(event)
             elif self.state == "help":
                 self.help_screen.handle_event(event)
-            elif self.state == "play":
+            elif self.state == "play" and self.play_menu:
                 self.play_menu.handle_events(event)
             elif self.state == "endgame":
                 self.endgame_screen.handle_event(event)
