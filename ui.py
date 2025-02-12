@@ -2,6 +2,8 @@ import pygame
 import datetime
 import csv
 
+from log_config import logger
+
 # ---------------------------
 # Button Class Definition
 # ---------------------------
@@ -23,6 +25,7 @@ class Button:
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
+            logger.debug("Button clicked: '%s'", self.text)
             self.callback()
 
 # ---------------------------
@@ -54,6 +57,8 @@ class MainMenu:
         self.buttons.append(Button(
             (button_x, start_y + 2*(button_height + spacing), button_width, button_height),
             "Settings", lambda: print("Settings button clicked"), self.button_font))
+        
+        logger.info("MainMenu initialized with header: %s", self.header_text)
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -66,6 +71,7 @@ class MainMenu:
     def handle_events(self, event):
         for button in self.buttons:
             button.handle_event(event)
+        #logger.debug("MainMenu processed event: %s", event)
 
 class PlayMenu:
     def __init__(self, screen, just_play_callback):
@@ -82,6 +88,7 @@ class PlayMenu:
         self.buttons.append(Button(
             (button_x, start_y, button_width, button_height),
             "Just Play Random", just_play_callback, self.button_font))
+        logger.info("PlayMenu initialized with %d buttons.", len(self.buttons))
 
     def draw(self):
         self.screen.fill((255, 255, 255))
@@ -94,6 +101,7 @@ class PlayMenu:
     def handle_events(self, event):
         for button in self.buttons:
             button.handle_event(event)
+        #logger.debug("PlayMenu processed event: %s", event)
 
 class EndGameScreen:
     def __init__(self, screen, player_game_points, computer_game_points, main_menu_callback):
@@ -131,6 +139,9 @@ class EndGameScreen:
 
         # Optional: A message to display feedback (e.g. for saving errors)
         self.feedback_message = ""
+        
+        logger.info("EndGameScreen initialized with outcome: %s (Player: %d, Computer: %d)",
+                    self.outcome_text, self.player_game_points, self.computer_game_points)
 
     def draw(self):
         # Clear the screen (you can choose a background color, here white)
@@ -163,6 +174,7 @@ class EndGameScreen:
         if event.type == pygame.MOUSEBUTTONDOWN:
             self.save_button.handle_event(event)
             self.main_menu_button.handle_event(event)
+            #logger.debug("EndGameScreen processed event: %s", event)
             
     def save_statistics(self):
         # Generate a filename with the current timestamp.
@@ -173,10 +185,10 @@ class EndGameScreen:
                 writer.writerow(["Player Game Points", "Computer Game Points"])
                 writer.writerow([self.player_game_points, self.computer_game_points])
             self.feedback_message = f"Statistics saved to {filename}"
-            print(self.feedback_message)
+            logger.debug(self.feedback_message)
         except Exception as e:
             self.feedback_message = f"Error saving statistics: {e}"
-            print(self.feedback_message)
+            logger.debug(self.feedback_message)
 
 class PauseMenu:
     def __init__(self, screen, continue_callback, help_callback, restart_callback, main_menu_callback):
@@ -212,6 +224,8 @@ class PauseMenu:
                                      "Restart Game", self.restart_callback, self.button_font))
         self.buttons.append(Button((start_x, start_y + 3*(button_height + spacing), button_width, button_height),
                                      "Main Menu", self.main_menu_callback, self.button_font))
+        
+        logger.info("PauseMenu initialized with %d buttons.", len(self.buttons))
     
     def draw(self):
         # Draw a semi-transparent overlay.
@@ -231,6 +245,7 @@ class PauseMenu:
     def handle_event(self, event):
         for button in self.buttons:
             button.handle_event(event)
+        #logger.debug("PauseMenu processed event: %s", event)
             
 class HelpScreen:
     def __init__(self, screen, go_back_callback):
@@ -304,6 +319,8 @@ class HelpScreen:
         
         # Create a "Go Back" button at the top left.
         self.back_button = Button((20, 20, 120, 40), "Go Back", self.go_back_callback, self.font_button)
+        
+        logger.info("HelpScreen initialized with %d lines of text.", len(self.lines))
     
     def draw(self):
         # Fill the background with a dark color.
@@ -348,3 +365,5 @@ class HelpScreen:
             elif event.button == 5:  # Scroll down.
                 self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.line_height)
         self.back_button.handle_event(event)
+        
+        #logger.debug("HelpScreen processed event: %s", event)

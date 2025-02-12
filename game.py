@@ -1,15 +1,18 @@
+from re import I
 import pygame
 import sys
 
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, MARRIAGE_DONE_EVENT
 from ui import MainMenu, PlayMenu, PauseMenu, HelpScreen, EndGameScreen
 from gameplay import GamePlay
+from log_config import logger
 
 # ---------------------------
 # Game Class (State Manager)
 # ---------------------------
 class Game:
     def __init__(self, width=SCREEN_WIDTH, height=SCREEN_HEIGHT):
+        logger.info("Initializing the game.")
         pygame.init()
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption("66 Santase by ma")
@@ -18,24 +21,30 @@ class Game:
 
         self.state = "menu"
         self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu, help_callback=self.show_help_from_main)
+        logger.debug("Main menu initialized.")
         self.play_menu = None
         self.gameplay = None
 
     def go_to_main_menu(self):
+        logger.info("Returning to main menu.")
         self.state = "menu"
 
     def go_to_play_menu(self):
+        logger.info("Switching to play menu.")
         self.state = "play"
         self.play_menu = PlayMenu(self.screen, just_play_callback=self.go_to_gameplay)
+        logger.debug("Play menu created.")
 
     def go_to_gameplay(self):
+        logger.info("Starting gameplay.")
         self.state = "game"
         self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
         self.gameplay.pause_callback = self.pause_game  # Set a callback
+        logger.debug("Gameplay screen created.")
 
     def pause_game(self):
+        logger.info("Game paused.")
         self.state = "pause"
-        # Create a PauseMenu instance with appropriate callbacks.
         self.pause_menu = PauseMenu(
             self.screen,
             continue_callback=self.resume_game,
@@ -43,29 +52,35 @@ class Game:
             restart_callback=self.restart_game,
             main_menu_callback=self.go_to_main_menu
         )
+        logger.debug("Pause menu created.")
 
     def resume_game(self):
+        logger.info("Resuming game from pause.")
         self.state = "game"
 
     def show_help_from_main(self):
+        logger.info("Showing help screen (from main menu).")
         self.state = "help"
         self.help_screen = HelpScreen(self.screen, go_back_callback=self.go_to_main_menu)
 
     def show_help_from_pause(self):
+        logger.info("Showing help screen (from pause menu).")
         self.state = "help"
         self.help_screen = HelpScreen(self.screen, go_back_callback=self.resume_pause_menu)
         
     def resume_pause_menu(self):
+        logger.info("Returning to pause menu from help screen.")
         self.state = "pause"
     
     def restart_game(self):
-        # For a restart, you can simply reinitialize the gameplay screen.
+        logger.info("Restarting game with current opponent.")
         self.state = "game"
         self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
-        # (Make sure to also reassign pause_callback)
         self.gameplay.pause_callback = self.pause_game
+        logger.debug("Gameplay screen reinitialized after restart.")
 
     def end_game(self):
+        logger.info("Ending game.")
         # Create an instance of EndGameScreen using the overall game points.
         self.state = "endgame"
         self.endgame_screen = EndGameScreen(
@@ -74,10 +89,15 @@ class Game:
             self.gameplay.computer_game_points,
             self.go_to_main_menu  # A method to transition to the main menu.
         )
+        logger.debug("End game screen created. Final score: Player %s - Computer %s",
+                     self.gameplay.player_game_points, self.gameplay.computer_game_points)
 
     def run(self):
+        logger.info("Game loop starting.")
         while self.running:
             self.handle_events()
+            
+            # Draw based on current state.
             if self.state == "game":
                 self.gameplay.draw()
             elif self.state == "pause":
@@ -92,10 +112,14 @@ class Game:
                 self.endgame_screen.draw()
             pygame.display.flip()
             self.clock.tick(60)
+        logger.info("Game loop terminated.")
 
     def handle_events(self):
         for event in pygame.event.get():
+            #logger.debug("Game has recieved event: %s", event)
+            
             if event.type == pygame.QUIT:
+                logger.info("QUIT event received. Exiting game loop.")
                 self.running = False
 
             # Handle the marriage timer event.

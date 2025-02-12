@@ -5,22 +5,26 @@ import math
 from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES, MARRIAGE_DONE_EVENT
 from ui import Button
 from ai import JustRandom
+from log_config import logger
 
 # ---------------------------
 # GamePlay Class Definition (Revised Rules & Draw Modification)
 # ---------------------------
 class GamePlay:
     def __init__(self, screen, end_game_callback):
+        logger.info("Initializing GamePlay.")
         self.end_game_callback = end_game_callback
         self.screen = screen
         self.screen_width, self.screen_height = self.screen.get_size()
+        logger.debug("Screen dimensions: %d x %d", self.screen_width, self.screen_height)
 
         # Load background image (or fallback)
         try:
             self.background = pygame.image.load("assets/backgrounds/game_background.jpg")
             self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
+            logger.info("Background image loaded and scaled.")
         except Exception as e:
-            print("Error loading background:", e)
+            logger.error("Error loading background image: %s", e)
             self.background = pygame.Surface((self.screen_width, self.screen_height))
             self.background.fill((0, 128, 0))
 
@@ -28,8 +32,9 @@ class GamePlay:
         try:
             self.card_back = pygame.image.load("assets/cards/back.png")
             self.card_back = pygame.transform.scale(self.card_back, (CARD_WIDTH, CARD_HEIGHT))
+            logger.info("Card back image loaded.")
         except Exception as e:
-            print("Error loading card back:", e)
+            logger.error("Error loading card back: %s", e)
             self.card_back = pygame.Surface((CARD_WIDTH, CARD_HEIGHT))
             self.card_back.fill((0, 0, 128))
 
@@ -45,24 +50,29 @@ class GamePlay:
                     img = pygame.transform.scale(img, (CARD_WIDTH, CARD_HEIGHT))
                     self.card_images[(rank, suit)] = img
                 except Exception as e:
-                    print(f"Error loading {filename}: {e}")
+                    logger.error("Error loading %s: %s", filename, e)
                     placeholder = pygame.Surface((CARD_WIDTH, CARD_HEIGHT))
                     placeholder.fill((200, 200, 200))
                     self.card_images[(rank, suit)] = placeholder
+        logger.info("Card images loaded.")
 
         # Build a 24-card deck.
         self.deck = [(rank, suit) for suit in self.suits for rank in self.ranks]
         random.shuffle(self.deck)
+        logger.debug("Deck built and shuffled with %d cards.", len(self.deck))
 
         # Deal cards in two rounds of 3 cards each.
         self.player_hand = [self.deck.pop() for _ in range(3)]
         self.computer_hand = [self.deck.pop() for _ in range(3)]
         self.player_hand += [self.deck.pop() for _ in range(3)]
         self.computer_hand += [self.deck.pop() for _ in range(3)]
+        logger.debug("Player hand: %s", self.player_hand)
+        logger.debug("Computer hand: %s", self.computer_hand)
 
         # Reveal trump card.
         self.trump_card = self.deck.pop() if self.deck else None
         self.trump_suit = self.trump_card[1] if self.trump_card else None
+        logger.info("Trump card revealed: %s", self.trump_card)
 
         # Played cards for the current trick.
         self.player_played = None
@@ -162,6 +172,8 @@ class GamePlay:
         
         pause_button_rect = pygame.Rect(self.screen_width - MARGIN - 100, MARGIN, 100, 40)
         self.pause_button = Button(pause_button_rect, "Pause", self.pause_game, pygame.font.SysFont('Arial', 20))
+        
+        logger.info("GamePlay initialized successfully.")
 
     def get_game_state(self):
         """
@@ -181,6 +193,7 @@ class GamePlay:
             "allowed_suit": self.player_played[1] if self.current_leader == "player" else None,
             "trump_suit": self.trump_suit
         }
+        logger.debug("Game state: %s", state)
         return state
 
     def draw(self):
@@ -372,6 +385,7 @@ class GamePlay:
         self.screen.blit(msg_text, msg_rect)
 
     def handle_event(self, event):
+        #logger.debug("GamePlay.handle_event received event: %s", event)
         # If an animation (such as a marriage announcement) is ongoing, ignore move events.
         # (You might want to let non–move events pass through; adjust as needed.)
         if self.ongoing_animation:
@@ -387,21 +401,25 @@ class GamePlay:
         self.marriage_button.handle_event(event)
 
         pos = event.pos
+        logger.debug("Mouse click at position: %s", pos)
 
         # If the "End Trick" button is clicked, process it immediately.
         if self.F_rect.collidepoint(pos):
             if self.trick_ready:
+                logger.info("End Trick button clicked.")
                 self.resolve_trick()
             return
 
         # If a trick is in progress, ignore further clicks.
         if self.trick_ready:
+            logger.debug("Trick already ready; ignoring additional clicks.")
             return
 
         # Determine the allowed suit when in second phase.
         allowed_suit = None
         if not self.first_phase and self.current_leader == "computer" and self.computer_played:
             allowed_suit = self.computer_played[1]
+            logger.debug("Allowed suit for following: %s", allowed_suit)
 
         if allowed_suit:
             player_has_follow = any(card[1] == allowed_suit for card in self.player_hand)
@@ -419,6 +437,7 @@ class GamePlay:
         for i in range(num_cards):
             card_rect = pygame.Rect(start_x + i * (CARD_WIDTH + CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
             if card_rect.collidepoint(pos):
+                logger.info("Player clicked on card at index %d.", i)
                 # If a marriage announcement is pending for the player, handle that first.
                 if self.marriage_pending:
                     selected_card = self.player_hand[i]
@@ -484,9 +503,18 @@ class GamePlay:
         Called when the player leads.
         After the player leads, have the computer respond as follower.
         """
-        self.player_played = self.player_hand.pop(card_index)
+        logger.info("Player is leading with card at index %d.", card_index)
+        try:
+            self.player_played = self.player_hand.pop(card_index)
+            logger.debug("Player played: %s. Updated hand: %s", self.player_played, self.player_hand)
+        except Exception as e:
+            logger.error("Error in player_lead: %s", e)
+            return
+        
         state = self.get_game_state()
         self.computer_played = self.opponent.play(state, self.computer_hand)
+        logger.info("Computer responded with: %s", self.computer_played)
+        
         self.trick_ready = True
         self.message = "Trick ready. Click 'End Trick' to resolve."
         self.current_leader = "player"
@@ -495,7 +523,14 @@ class GamePlay:
         """
         Called when the player follows.
         """
-        self.player_played = self.player_hand.pop(card_index)
+        logger.info("Player is following with card at index %d.", card_index)
+        try:
+            self.player_played = self.player_hand.pop(card_index)
+            logger.debug("Player followed with card: %s. Updated hand: %s", self.player_played, self.player_hand)
+        except Exception as e:
+            logger.error("Error in player_follow: %s", e)
+            return
+        
         self.trick_ready = True
         self.message = "Trick ready. Click 'End Trick' to resolve."
 
@@ -503,6 +538,7 @@ class GamePlay:
         """
         Helper to select the card the player clicked when following.
         """
+        logger.info("Processing player follow by click at position: %s", pos)
         num_cards = len(self.player_hand)
         total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
         start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
@@ -514,15 +550,18 @@ class GamePlay:
                 break
 
     def computer_lead(self):
+        logger.info("Computer's turn to lead started.")
         current_time = pygame.time.get_ticks()
         
         # If a marriage announcement is active, wait until the 3-second period is over.
         if self.marriage_announcement is not None:
             delta = current_time - self.marriage_time
             if delta < 3000:
+                logger.info("Marriage announcement active (delta: %d ms). Waiting to lead...", delta)
                 self.message = "Computer announced marriage. Waiting to lead..."
                 return  # Do not lead until the announcement is cleared.
             else:
+                logger.debug("Marriage announcement period elapsed; clearing announcement.")
                 # (The timer event should normally clear the announcement, but as a fallback:)
                 self.marriage_announcement = None
 
@@ -541,6 +580,7 @@ class GamePlay:
                 points = 40 if marriage_found[0][1] == self.trump_suit else 20
                 self.computer_round_points += points
                 self.message = f"Computer announces marriage in {marriage_found[0][1]}! +{points} points."
+                logger.info("Computer announces marriage: %s, awarding %d points.", marriage_found, points)
                 # Schedule a timer event to clear the announcement after 3000ms.
                 pygame.time.set_timer(MARRIAGE_DONE_EVENT, 3000)
                 return  # Do not lead a card until the timer clears the announcement.
@@ -548,6 +588,7 @@ class GamePlay:
         # If no marriage is announced (or it has already been processed), lead normally.
         state = self.get_game_state()
         self.computer_played = self.opponent.play(state, self.computer_hand)
+        logger.info("Computer leads with card: %s.", self.computer_played)
         self.current_leader = "computer"
         self.message = "Computer leads. Your turn to follow."
         self.trick_ready = False
@@ -558,8 +599,10 @@ class GamePlay:
         Then call draw_cards (which now also handles the last-trick bonus).
         If the computer wins the trick, automatically have it lead.
         """
+        logger.info("Resolving trick. Player card: %s, Computer card: %s.", self.player_played, self.computer_played)
         winner = self.determine_trick_winner(self.player_played, self.computer_played)
         trick_points = CARD_VALUES[self.player_played[0]] + CARD_VALUES[self.computer_played[0]]
+        logger.info("Trick points calculated: %d.", trick_points)
         # (The extra 10 points for the last trick will be handled in draw_cards.)
         if winner == "player":
             self.player_round_points += trick_points
@@ -568,14 +611,17 @@ class GamePlay:
             self.current_leader = "player"
             # Record the won cards for display.
             self.player_won_cards.extend([self.player_played, self.computer_played])
+            logger.info("Player wins the trick. New player round points: %d.", self.player_round_points)
         elif winner == "computer":
             self.computer_round_points += trick_points
             self.computer_tricks += 1
             self.message = f"Computer wins the trick and earns {trick_points} points!"
             self.current_leader = "computer"
             self.computer_won_cards.extend([self.player_played, self.computer_played])
+            logger.info("Computer wins the trick. New computer round points: %d.", self.computer_round_points)
         else:
             self.message = "Tie trick! No points awarded."
+            logger.info("Trick ended in a tie.")
 
         self.player_played = None
         self.computer_played = None
@@ -586,6 +632,7 @@ class GamePlay:
         self.check_round_end()
         # If computer is now leader, have it lead automatically (even in second phase).
         if self.current_leader == "computer":
+            logger.info("After trick resolution, computer is leading. Initiating computer lead.")
             self.computer_lead()
 
     def determine_trick_winner(self, player_card, computer_card):
@@ -603,6 +650,7 @@ class GamePlay:
         Returns:
             "player" or "computer" indicating the winner of the trick.
         """
+        logger.debug("Determining trick winner. Player card: %s, Computer card: %s", player_card, computer_card)
         trump = self.trump_suit
 
         # Identify leader and follower based on who started the trick.
@@ -622,19 +670,25 @@ class GamePlay:
 
         # Rule 1: If one card is trump and the other is not, trump wins.
         if leader_card[1] == trump and follower_card[1] != trump:
+            logger.debug("Player card is trump; player wins.")
             return leader
         if follower_card[1] == trump and leader_card[1] != trump:
+            logger.debug("Computer card is trump; computer wins.")
             return follower
 
         # Rule 2(a): If neither card is trump (or both are trump) and the follower did not follow suit,
         # then the leader wins.
         if follower_card[1] != lead_suit:
+            logger.debug("Cards are of different suits; leader wins by default.")
             return leader
 
         # Rule 2(b): Both cards are of the lead suit (or both are trump), so compare point values.
+        logger.debug("Comparing point values: Leader %d vs. Follower %d", CARD_VALUES[leader_card[0]], CARD_VALUES[follower_card[0]])
         if CARD_VALUES[leader_card[0]] >= CARD_VALUES[follower_card[0]]:
+            logger.debug("Leader wins based on point value.")
             return leader
         else:
+            logger.debug("Follower wins based on point value.")
             return follower
 
     def draw_cards(self, trick_winner):
@@ -644,30 +698,43 @@ class GamePlay:
         (which counts as the last card) and the winner is awarded an extra 10 points.
         Then, the game switches to second phase.
         """
+        logger.info("Drawing cards after trick. Trick winner: %s.", trick_winner)
         if self.deck:
             if trick_winner == "player":
-                self.player_hand.append(self.deck.pop())
+                card = self.deck.pop()
+                self.player_hand.append(card)
+                logger.debug("Player draws card: %s", card)
                 if not self.deck and self.trump_card is not None:
                     # Last card: loser draws the trump card.
                     self.computer_hand.append(self.trump_card)
+                    logger.debug("Deck empty after player draw; computer draws trump card: %s", self.trump_card)
                     self.trump_card = None
                     self.player_round_points += 10  # extra 10 points bonus
-                else:
-                    if self.deck:
-                        self.computer_hand.append(self.deck.pop())
+                    logger.info("Extra 10 points awarded to player for last trick bonus.")
+                elif self.deck:
+                    card = self.deck.pop()
+                    self.computer_hand.append(card)
+                    logger.debug("Computer draws card: %s", card)
             elif trick_winner == "computer":
-                self.computer_hand.append(self.deck.pop())
+                card = self.deck.pop()
+                self.computer_hand.append(card)
+                logger.debug("Computer draws card: %s", card)
                 if not self.deck and self.trump_card is not None:
                     self.player_hand.append(self.trump_card)
+                    logger.debug("Deck empty after computer draw; player draws trump card: %s", self.trump_card)
                     self.trump_card = None
                     self.computer_round_points += 10  # extra 10 points bonus
-                else:
-                    if self.deck:
-                        self.player_hand.append(self.deck.pop())
+                    logger.info("Extra 10 points awarded to computer for last trick bonus.")
+                elif self.deck:
+                    card = self.deck.pop()
+                    self.player_hand.append(card)
+                    logger.debug("Player draws card: %s", card)
             if not self.deck:
                 self.first_phase = False
+                logger.info("Deck exhausted. Switching to second phase.")
         else:
             self.first_phase = False
+            logger.info("No deck remaining. Switching to second phase.")
 
     def check_round_end(self):
         """
@@ -681,16 +748,23 @@ class GamePlay:
         - If neither player reaches 66, the player with the highest points gets 1 game point.
         - If the player closed the game but did not reach 66, the opponent gets 1 game point as a penalty.
         """
+        logger.info("Checking if round has ended.")
         # Only check for round end when both hands are empty.
         if len(self.player_hand) > 0 or len(self.computer_hand) > 0:
+            logger.debug("Round not ended; player_hand has %d cards, computer_hand has %d cards.", 
+                     len(self.player_hand), len(self.computer_hand))
             return  # Round is not over yet.
 
         # --- Round has ended because both hands are empty. ---
+        logger.info("Both hands empty; round has ended.")
 
         # First, handle the case where the game was closed.
         if self.game_closed:
+            logger.info("Game was closed by the player.")
             # Assume only the human can close the game.
             if self.player_round_points < 66:
+                logger.info("Player closed the game but did not reach 66 (player points: %d). Awarding 1 game point to computer.", 
+                        self.player_round_points)
                 # The human closed but did not reach 66; award 1 game point to the computer.
                 self.computer_game_points += 1
                 self.message = "You closed the game but didn't reach 66. Computer gets 1 game point as penalty."
@@ -699,16 +773,22 @@ class GamePlay:
                 # End the round.
                 if self.player_game_points >= 11 or self.computer_game_points >= 11:
                     self.message += " Game Over."
+                    logger.info("Overall game over. Final scores - Player: %d, Computer: %d", 
+                            self.player_game_points, self.computer_game_points)
                     self.end_game_callback()
                 else:
+                    logger.info("Resetting round after penalty.")
                     self.reset_round()
                 return
             else:
                 # If closed and the human did reach 66, then clear the flag and continue with normal scoring.
+                logger.info("Game was closed but player reached 66. Clearing game_closed flag.")
                 self.game_closed = False
 
         # Now, determine scoring based on round points.
         if self.player_round_points >= 66 or self.computer_round_points >= 66:
+            logger.info("At least one player reached 66 points (Player: %d, Computer: %d).", 
+                    self.player_round_points, self.computer_round_points)
             # At least one player reached 66.
             if self.player_round_points > self.computer_round_points:
                 winner = "player"
@@ -722,11 +802,16 @@ class GamePlay:
             # Apply the game point rules.
             if loser_tricks == 0:
                 game_points = 3
+                logger.info("Opponent won 0 tricks. Awarding 3 game points to %s.", winner)
             elif loser_points < 33:
                 game_points = 2
+                logger.info("Opponent has less than 33 points. Awarding 2 game points to %s.", winner)
             else:
                 game_points = 1
+                logger.info("Awarding 1 game point to %s.", winner)
         else:
+            logger.info("Neither player reached 66 points (Player: %d, Computer: %d).", 
+                    self.player_round_points, self.computer_round_points)
             # Neither player reached 66.
             if self.player_round_points > self.computer_round_points:
                 winner = "player"
@@ -744,32 +829,44 @@ class GamePlay:
             else:
                 self.computer_game_points += game_points
                 self.message = f"Computer wins the round! (+{game_points} game point)"
+            logger.info("Round winner: %s. Awarded %d game point(s). Current overall scores - Player: %d, Computer: %d",
+                winner, game_points, self.player_game_points, self.computer_game_points)
         else:
             self.message = "Round ended in a tie. No game points awarded."
+            logger.info("Round ended in a tie. No game points awarded.")
 
         # Check for overall game end.
         if self.player_game_points >= 11 or self.computer_game_points >= 11:
             self.message += " Game Over."
+            logger.info("Overall game over. Final scores - Player: %d, Computer: %d", 
+                self.player_game_points, self.computer_game_points)
             self.end_game_callback()
         else:
+            logger.info("Resetting round for next play. Current overall scores - Player: %d, Computer: %d", 
+                self.player_game_points, self.computer_game_points)
             self.reset_round()
 
     def reset_round(self):
         """
         Reset for a new round: rebuild the deck, re-deal cards, and reset round points and trick counts.
         """
+        logger.info("Resetting round.")
         self.deck = [(rank, suit) for suit in self.suits for rank in self.ranks]
         random.shuffle(self.deck)
+        logger.debug("Deck rebuilt and shuffled. Total cards: %d", len(self.deck))
         self.player_hand = [self.deck.pop() for _ in range(3)]
         self.computer_hand = [self.deck.pop() for _ in range(3)]
         self.player_hand += [self.deck.pop() for _ in range(3)]
         self.computer_hand += [self.deck.pop() for _ in range(3)]
+        logger.debug("Dealt new hands. Player hand: %s, Computer hand: %s", self.player_hand, self.computer_hand)
         self.trump_card = self.deck.pop() if self.deck else None
         self.trump_suit = self.trump_card[1] if self.trump_card else None
+        logger.info("New trump card: %s", self.trump_card)
         self.player_round_points = 0
         self.computer_round_points = 0
         self.player_tricks = 0
         self.computer_tricks = 0
+        logger.debug("Round points and trick counts reset.")
         self.first_phase = True
         self.current_leader = "player"
         self.player_played = None
@@ -785,20 +882,25 @@ class GamePlay:
         self.computer_won_cards = []
         self.game_closed = False
         self.message += " New round started. Your turn to lead."
+        logger.info("Round reset complete.")
 
     def close_game(self):
         """
         Called when the player clicks the "Close" button.
         This stops drawing from the deck and marks that the game was closed.
         """
+        logger.info("Player chose to close the game (end first phase).")
         self.first_phase = False
         self.game_closed = True  # Mark that the human closed the game.
         self.message = "You closed the game. Now in second phase, follow suit if possible."
+        logger.debug("Game closed flag set; switching to second phase.")
 
     def switch_trump(self):
         # Allow the switch only if the player is the leader.
+        logger.info("Player attempting trump switch.")
         if self.current_leader != "player":
             self.message = "You can only switch trump 9 when you are leading."
+            logger.warning("Trump switch failed: player is not the leader.")
             return
 
         trump9 = ("9", self.trump_suit)
@@ -810,19 +912,28 @@ class GamePlay:
             # Now set the trump announcement card to trump9
             self.trump_card = trump9
             self.message = "Trump 9 switch successful!"
+            logger.info("Trump switch successful: Player switched trump card with trump 9.")
         else:
             self.message = "You do not have the trump 9."
+            logger.warning("Trump switch failed: Player does not have trump 9.")
 
     def announce_marriage(self):
         # Only allow marriage if the human is in lead and has not yet announced one this round.
+        logger.info("Player requested marriage announcement.")
         if self.current_leader != "player":
             self.message = "You can only announce marriage when you're in lead."
+            logger.warning("Marriage announcement failed: player is not in lead.")
             return
         # Set a flag so that the next card click will be interpreted as the marriage selection.
         self.marriage_pending = True
         self.message = "Marriage pending: click a King or Queen from your hand to announce marriage."
+        logger.debug("Marriage pending flag set; waiting for player to select appropriate card.")
 
     def pause_game(self):
         # Call the callback that was passed to GamePlay to change the state.
+        logger.info("Pause game triggered by player.")
         if hasattr(self, 'pause_callback'):
             self.pause_callback()
+            logger.info("Pause callback invoked; game state should now be 'pause'.")
+        else:
+            logger.error("Pause callback not defined in GamePlay.")
