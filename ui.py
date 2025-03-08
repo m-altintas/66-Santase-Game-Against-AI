@@ -364,6 +364,5 @@ class HelpScreen:
                 self.scroll_offset = max(0, self.scroll_offset - self.line_height)
             elif event.button == 5:  # Scroll down.
                 self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.line_height)
-        self.back_button.handle_event(event)
         
         #logger.debug("HelpScreen processed event: %s", event)

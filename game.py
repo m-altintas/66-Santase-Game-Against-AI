@@ -1,4 +1,3 @@
-from re import I
 import pygame
 import sys
 

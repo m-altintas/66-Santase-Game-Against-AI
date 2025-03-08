@@ -116,55 +116,12 @@ class GamePlay:
         # Create the opponent instance.
         self.opponent = JustRandom()
 
-        # ---------------------------
-        # Define Zones (with Equal Margins)
-        # ---------------------------
-        # Zone A: Opponent’s hand.
-        self.A_rect = pygame.Rect(MARGIN, MARGIN, self.screen_width - 2 * MARGIN, 150)
-        # Zone B: Player’s hand.
-        self.B_rect = pygame.Rect(MARGIN, self.screen_height - MARGIN - 150, self.screen_width - 2 * MARGIN, 150)
-        # Zone C: Central area for trick cards.
-        self.C_rect = pygame.Rect(390, 260, 500, 200)
-        # Inside C: D (opponent’s played card) and E (player’s played card).
-        self.D_rect = pygame.Rect(self.C_rect.x, self.C_rect.y, self.C_rect.width // 2, self.C_rect.height)
-        self.E_rect = pygame.Rect(self.C_rect.x + self.C_rect.width // 2, self.C_rect.y, self.C_rect.width // 2, self.C_rect.height)
-        # Zone F: “End Trick” button.
-        self.F_rect = pygame.Rect(self.C_rect.right + 10, self.C_rect.y + (self.C_rect.height - 50) // 2, 100, 50)
-
-        # Group the deck (draw pile) and trump card on the left, centered vertically.
-        group_height = 150
-        group_y = (self.screen_height - group_height) // 2
-        self.I_rect = pygame.Rect(MARGIN, group_y, 100, 150)       # Deck.
-        self.H_rect = pygame.Rect(MARGIN + 100 + 10, group_y, 100, 150)  # Trump card.
-        
-        # New Zone T: Trump suit text, to the right of Zone H.
-        self.T_rect = pygame.Rect(self.H_rect.right + 10, self.H_rect.y + (self.H_rect.height // 2) - 20, 150, 40)
-
-        # (Keep existing zones for remaining deck count, etc.)
-        # For the round points, you might have something like:
-        self.G_rect = pygame.Rect(self.screen_width - MARGIN - 100, self.B_rect.y - 70, 100, 40)
-        # New Zone OG: Overall game points display, placed above Zone G.
-        self.OG_rect = pygame.Rect(self.screen_width - MARGIN - 100, self.G_rect.y - 50, 100, 40)
-        
-        # New Zone W: Display won cards by the player in the round.
-        # For instance, a rectangle in the bottom-right corner.
-        self.W_rect = pygame.Rect(self.screen_width - MARGIN - 200, self.B_rect.y, 180, 150)
-
-        # Zone J: Remaining deck count.
-        self.J_rect = pygame.Rect(MARGIN, self.B_rect.y - 70, 80, 40)
-        # New Zone K: Close button, placed under Zone J.
-        self.K_rect = pygame.Rect(MARGIN, self.J_rect.bottom + 10, 80, 40)
-        # New Zone L: Switch button, placed to the right of Zone J.
-        self.L_rect = pygame.Rect(self.J_rect.right + 10, self.J_rect.y, 80, 40)
-        # New Zone M: Marriage button, placed under Zone L.
-        self.M_rect = pygame.Rect(self.L_rect.x, self.L_rect.bottom + 10, 80, 40)
-        # Zone G: Points display remains unchanged.
-        self.G_rect = pygame.Rect(self.screen_width - MARGIN - 100, self.B_rect.y - 70, 100, 40)
+        self.zones = self.init_zones()
 
         # Close button for Zone K.
-        self.close_button = Button(self.K_rect, "Close", self.close_game, pygame.font.SysFont('Arial', 20))
-        self.switch_button = Button(self.L_rect, "Switch", self.switch_trump, pygame.font.SysFont('Arial', 20))
-        self.marriage_button = Button(self.M_rect, "Marriage", self.announce_marriage, pygame.font.SysFont('Arial', 20))
+        self.close_button = Button(self.zones['K'], "Close", self.close_game, pygame.font.SysFont('Arial', 20))
+        self.switch_button = Button(self.zones['L'], "Switch", self.switch_trump, pygame.font.SysFont('Arial', 20))
+        self.marriage_button = Button(self.zones['M'], "Marriage", self.announce_marriage, pygame.font.SysFont('Arial', 20))
         
         # Variables for shake animation
         self.shake_card_index = None   # The index of the card to shake (if any)
@@ -175,6 +132,28 @@ class GamePlay:
         self.pause_button = Button(pause_button_rect, "Pause", self.pause_game, pygame.font.SysFont('Arial', 20))
         
         logger.info("GamePlay initialized successfully.")
+
+    def init_zones(self):
+        zones = {}
+        zones['A'] = pygame.Rect(MARGIN, MARGIN, self.screen_width - 2 * MARGIN, 150)
+        zones['B'] = pygame.Rect(MARGIN, self.screen_height - MARGIN - 150, self.screen_width - 2 * MARGIN, 150)
+        zones['C'] = pygame.Rect(390, 260, 500, 200)
+        zones['D'] = pygame.Rect(zones['C'].x, zones['C'].y, zones['C'].width // 2, zones['C'].height)
+        zones['E'] = pygame.Rect(zones['C'].x + zones['C'].width // 2, zones['C'].y, zones['C'].width // 2, zones['C'].height)
+        zones['F'] = pygame.Rect(zones['C'].right + 10, zones['C'].y + (zones['C'].height - 50) // 2, 100, 50)
+        group_height = 150
+        group_y = (self.screen_height - group_height) // 2
+        zones['I'] = pygame.Rect(MARGIN, group_y, 100, 150)
+        zones['H'] = pygame.Rect(MARGIN + 100 + 10, group_y, 100, 150)
+        zones['T'] = pygame.Rect(zones['H'].right + 10, zones['H'].y + (zones['H'].height // 2) - 20, 150, 40)
+        zones['J'] = pygame.Rect(MARGIN, zones['B'].y - 70, 80, 40)
+        zones['K'] = pygame.Rect(MARGIN, zones['J'].bottom + 10, 80, 40)
+        zones['L'] = pygame.Rect(zones['J'].right + 10, zones['J'].y, 80, 40)
+        zones['M'] = pygame.Rect(zones['L'].x, zones['L'].bottom + 10, 80, 40)
+        zones['G'] = pygame.Rect(self.screen_width - MARGIN - 100, zones['B'].y - 70, 100, 40)
+        zones['OG'] = pygame.Rect(self.screen_width - MARGIN - 100, zones['G'].y - 50, 100, 40)
+        zones['W'] = pygame.Rect(self.screen_width - MARGIN - 200, zones['B'].y, 180, 150)
+        return zones
 
     def get_game_state(self):
         """
@@ -191,8 +170,7 @@ class GamePlay:
             "player_hand": self.player_hand.copy(),
             "first_phase": self.first_phase,
             "current_leader": self.current_leader,
-            "allowed_suit": self.player_played[1] if self.current_leader == "player" else None,
-            "trump_suit": self.trump_suit
+            "allowed_suit": self.player_played[1] if self.current_leader == "player" else None
         }
         logger.debug("Game state: %s", state)
         return state
@@ -206,8 +184,8 @@ class GamePlay:
         if self.computer_hand:
             num_cards = len(self.computer_hand)
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-            start_x = self.A_rect.x + (self.A_rect.width - total_width) // 2
-            y = self.A_rect.y + (self.A_rect.height - CARD_HEIGHT) // 2
+            start_x = self.zones['A'].x + (self.zones['A'].width - total_width) // 2
+            y = self.zones['A'].y + (self.zones['A'].height - CARD_HEIGHT) // 2
             for i in range(num_cards):
                 pos = (start_x + i * (CARD_WIDTH + CARD_SPACING), y)
                 self.screen.blit(self.card_back, pos)
@@ -216,8 +194,8 @@ class GamePlay:
         if self.player_hand:
             num_cards = len(self.player_hand)
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-            start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
-            y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
+            start_x = self.zones['B'].x + (self.zones['B'].width - total_width) // 2
+            y = self.zones['B'].y + (self.zones['B'].height - CARD_HEIGHT) // 2
 
             # Determine the allowed suit when in second phase.
             # (Assume that when the computer is leading, its played card defines the led suit.)
@@ -282,8 +260,8 @@ class GamePlay:
                 img2 = self.card_images.get(card2)
                 if img1 and img2:
                     total_width = CARD_WIDTH * 2 + 10
-                    x = self.C_rect.centerx - total_width // 2
-                    y = self.C_rect.centery - CARD_HEIGHT // 2
+                    x = self.zones['C'].centerx - total_width // 2
+                    y = self.zones['C'].centery - CARD_HEIGHT // 2
                     self.screen.blit(img1, (x, y))
                     self.screen.blit(img2, (x + CARD_WIDTH + 10, y))
                 # Ensure input remains blocked.
@@ -297,34 +275,34 @@ class GamePlay:
         if self.computer_played:
             img = self.card_images.get(self.computer_played)
             if img:
-                rect = img.get_rect(center=self.D_rect.center)
+                rect = img.get_rect(center=self.zones['D'].center)
                 self.screen.blit(img, rect)
         if self.player_played:
             img = self.card_images.get(self.player_played)
             if img:
-                rect = img.get_rect(center=self.E_rect.center)
+                rect = img.get_rect(center=self.zones['E'].center)
                 self.screen.blit(img, rect)
 
         # Draw the "End Trick" button (Zone F).
-        pygame.draw.rect(self.screen, (180, 180, 250), self.F_rect)
+        pygame.draw.rect(self.screen, (180, 180, 250), self.zones['F'])
         et_text = font_small.render("End Trick", True, (0, 0, 0))
-        et_rect = et_text.get_rect(center=self.F_rect.center)
+        et_rect = et_text.get_rect(center=self.zones['F'].center)
         self.screen.blit(et_text, et_rect)
 
         # Draw deck (Zone I), trump card (Zone H), remaining deck count (Zone J), and other UI elements.
         if self.deck:
-            deck_img = pygame.transform.scale(self.card_back, (self.I_rect.width, self.I_rect.height))
-            self.screen.blit(deck_img, (self.I_rect.x, self.I_rect.y))
+            deck_img = pygame.transform.scale(self.card_back, (self.zones['I'].width, self.zones['I'].height))
+            self.screen.blit(deck_img, (self.zones['I'].x, self.zones['I'].y))
         else:
-            pygame.draw.rect(self.screen, (50, 50, 50), self.I_rect)
+            pygame.draw.rect(self.screen, (50, 50, 50), self.zones['I'])
         if self.trump_card:
-            trump_img = pygame.transform.scale(self.card_images.get(self.trump_card), (self.H_rect.width, self.H_rect.height))
-            self.screen.blit(trump_img, (self.H_rect.x, self.H_rect.y))
+            trump_img = pygame.transform.scale(self.card_images.get(self.trump_card), (self.zones['H'].width, self.zones['H'].height))
+            self.screen.blit(trump_img, (self.zones['H'].x, self.zones['H'].y))
         else:
-            pygame.draw.rect(self.screen, (50, 50, 50), self.H_rect)
-        pygame.draw.rect(self.screen, (250, 250, 200), self.J_rect)
+            pygame.draw.rect(self.screen, (50, 50, 50), self.zones['H'])
+        pygame.draw.rect(self.screen, (250, 250, 200), self.zones['J'])
         count_text = font_small.render(str(len(self.deck)), True, (0, 0, 0))
-        count_rect = count_text.get_rect(center=self.J_rect.center)
+        count_rect = count_text.get_rect(center=self.zones['J'].center)
         self.screen.blit(count_text, count_rect)
 
         # Draw additional buttons.
@@ -332,8 +310,8 @@ class GamePlay:
             self.close_button.draw(self.screen)
         else:
             sp_text = font_small.render("2nd Phase", True, (0, 0, 0))
-            sp_rect = sp_text.get_rect(center=self.K_rect.center)
-            pygame.draw.rect(self.screen, (200, 250, 200), self.K_rect)
+            sp_rect = sp_text.get_rect(center=self.zones['K'].center)
+            pygame.draw.rect(self.screen, (200, 250, 200), self.zones['K'])
             self.screen.blit(sp_text, sp_rect)
         self.switch_button.draw(self.screen)
         self.marriage_button.draw(self.screen)
@@ -341,28 +319,28 @@ class GamePlay:
         # Draw trump suit text (Zone T).
         trump_text = f"Trump Suit: ({self.trump_suit})" if self.trump_suit else "No Trump"
         trump_surface = font_small.render(trump_text, True, (0, 0, 0))
-        trump_rect = trump_surface.get_rect(center=self.T_rect.center)
-        pygame.draw.rect(self.screen, (250, 250, 250), self.T_rect)
+        trump_rect = trump_surface.get_rect(center=self.zones['T'].center)
+        pygame.draw.rect(self.screen, (250, 250, 250), self.zones['T'])
         self.screen.blit(trump_surface, trump_rect)
 
         # Draw overall game points (Zone OG).
         game_points_text = f"Game: {self.player_game_points} - {self.computer_game_points}"
         game_points_surface = font_small.render(game_points_text, True, (0, 0, 0))
-        game_points_rect = game_points_surface.get_rect(center=self.OG_rect.center)
-        pygame.draw.rect(self.screen, (250, 250, 200), self.OG_rect)
+        game_points_rect = game_points_surface.get_rect(center=self.zones['OG'].center)
+        pygame.draw.rect(self.screen, (250, 250, 200), self.zones['OG'])
         self.screen.blit(game_points_surface, game_points_rect)
 
         # Draw round points (Zone G).
-        pygame.draw.rect(self.screen, (250, 200, 200), self.G_rect)
+        pygame.draw.rect(self.screen, (250, 200, 200), self.zones['G'])
         points_text = font_small.render(f"Pts: {self.player_round_points}-{self.computer_round_points}", True, (0, 0, 0))
-        points_rect = points_text.get_rect(center=self.G_rect.center)
+        points_rect = points_text.get_rect(center=self.zones['G'].center)
         self.screen.blit(points_text, points_rect)
 
         # Draw the player's won cards (Zone W).
         if self.player_won_cards:
             offset = 20  # Overlap offset.
-            x = self.W_rect.x
-            y = self.W_rect.y
+            x = self.zones['W'].x
+            y = self.zones['W'].y
             scale_factor = 0.5
             thumb_width = int(CARD_WIDTH * scale_factor)
             thumb_height = int(CARD_HEIGHT * scale_factor)
@@ -382,7 +360,7 @@ class GamePlay:
 
         # Draw feedback message.
         msg_text = font_small.render(self.message, True, (255, 255, 255))
-        msg_rect = msg_text.get_rect(center=(self.screen_width // 2, self.B_rect.y - 30))
+        msg_rect = msg_text.get_rect(center=(self.screen_width // 2, self.zones['B'].y - 30))
         self.screen.blit(msg_text, msg_rect)
 
     def handle_event(self, event):
@@ -405,7 +383,7 @@ class GamePlay:
         logger.debug("Mouse click at position: %s", pos)
 
         # If the "End Trick" button is clicked, process it immediately.
-        if self.F_rect.collidepoint(pos):
+        if self.zones['F'].collidepoint(pos):
             if self.trick_ready:
                 logger.info("End Trick button clicked.")
                 self.resolve_trick()
@@ -431,8 +409,8 @@ class GamePlay:
 
         num_cards = len(self.player_hand)
         total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-        start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
-        y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
+        start_x = self.zones['B'].x + (self.zones['B'].width - total_width) // 2
+        y = self.zones['B'].y + (self.zones['B'].height - CARD_HEIGHT) // 2
 
         # Loop over each card in the player's hand to see if it was clicked.
         for i in range(num_cards):
@@ -499,39 +477,34 @@ class GamePlay:
                     self.player_follow(i)
                 break
 
-    def player_lead(self, card_index):
-        """
-        Called when the player leads.
-        After the player leads, have the computer respond as follower.
-        """
-        logger.info("Player is leading with card at index %d.", card_index)
+    def _player_play_card(self, card_index, move_type="move"):
         try:
-            self.player_played = self.player_hand.pop(card_index)
-            logger.debug("Player played: %s. Updated hand: %s", self.player_played, self.player_hand)
+            card = self.player_hand.pop(card_index)
+            self.player_played = card
+            logger.debug("Player %s card: %s. Updated hand: %s", move_type, card, self.player_hand)
+            return card
         except Exception as e:
-            logger.error("Error in player_lead: %s", e)
+            logger.error("Error in player %s: %s", move_type, e)
+            return None
+
+    def player_lead(self, card_index):
+        logger.info("Player is leading with card at index %d.", card_index)
+        card = self._player_play_card(card_index, "lead")
+        if card is None:
             return
-        
         state = self.get_game_state()
         self.computer_played = self.opponent.play(state, self.computer_hand)
         logger.info("Computer responded with: %s", self.computer_played)
-        
         self.trick_ready = True
         self.message = "Trick ready. Click 'End Trick' to resolve."
         self.current_leader = "player"
 
     def player_follow(self, card_index):
-        """
-        Called when the player follows.
-        """
         logger.info("Player is following with card at index %d.", card_index)
-        try:
-            self.player_played = self.player_hand.pop(card_index)
-            logger.debug("Player followed with card: %s. Updated hand: %s", self.player_played, self.player_hand)
-        except Exception as e:
-            logger.error("Error in player_follow: %s", e)
+        card = self._player_play_card(card_index, "follow")
+        if card is None:
             return
-        
+        logger.debug("Player followed with card: %s. Updated hand: %s", card, self.player_hand)
         self.trick_ready = True
         self.message = "Trick ready. Click 'End Trick' to resolve."
 
@@ -542,8 +515,8 @@ class GamePlay:
         logger.info("Processing player follow by click at position: %s", pos)
         num_cards = len(self.player_hand)
         total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
-        start_x = self.B_rect.x + (self.B_rect.width - total_width) // 2
-        y = self.B_rect.y + (self.B_rect.height - CARD_HEIGHT) // 2
+        start_x = self.zones['B'].x + (self.zones['B'].width - total_width) // 2
+        y = self.zones['B'].y + (self.zones['B'].height - CARD_HEIGHT) // 2
         for i in range(num_cards):
             card_rect = pygame.Rect(start_x + i*(CARD_WIDTH+CARD_SPACING), y, CARD_WIDTH, CARD_HEIGHT)
             if card_rect.collidepoint(pos):
