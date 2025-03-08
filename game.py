@@ -31,7 +31,7 @@ class Game:
     def go_to_play_menu(self):
         logger.info("Switching to play menu.")
         self.state = "play"
-        self.play_menu = PlayMenu(self.screen, just_play_callback=self.go_to_gameplay)
+        self.play_menu = PlayMenu(self.screen, ai_select_callback=lambda ai: self.go_to_gameplay())
         logger.debug("Play menu created.")
 
     def go_to_gameplay(self):
