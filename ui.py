@@ -74,26 +74,52 @@ class MainMenu:
         #logger.debug("MainMenu processed event: %s", event)
 
 class PlayMenu:
-    def __init__(self, screen, just_play_callback):
+    def __init__(self, screen, ai_select_callback):
         self.screen = screen
         self.font = pygame.font.SysFont('Arial', 36)
         self.button_font = pygame.font.SysFont('Arial', 24)
         self.buttons = []
         screen_width, screen_height = self.screen.get_size()
-        button_width = 200
+        button_width = 250  # Adjust width as needed for four buttons
         button_height = 50
-        button_x = (screen_width - button_width) // 2
-        start_y = screen_height // 2 - button_height // 2
-
+        spacing = 20
+        # Arrange buttons vertically with equal spacing:
+        start_y = (screen_height - (4 * button_height + 3 * spacing)) // 2
+        
+        # "Just Random" button
         self.buttons.append(Button(
-            (button_x, start_y, button_width, button_height),
-            "Just Play Random", just_play_callback, self.button_font))
+            ( (screen_width - button_width) // 2, start_y, button_width, button_height ),
+            "Just Random", 
+            lambda: ai_select_callback("JustRandom"), 
+            self.button_font))
+        
+        # "Trick-Based Greedy" button
+        self.buttons.append(Button(
+            ( (screen_width - button_width) // 2, start_y + (button_height + spacing), button_width, button_height ),
+            "Trick-Based Greedy", 
+            lambda: ai_select_callback("TrickBasedGreedy"), 
+            self.button_font))
+        
+        # "Santase Minimax" button
+        self.buttons.append(Button(
+            ( (screen_width - button_width) // 2, start_y + 2*(button_height + spacing), button_width, button_height ),
+            "Santase Minimax", 
+            lambda: ai_select_callback("SantaseMinimax"), 
+            self.button_font))
+        
+        # "Reinforcement" button
+        self.buttons.append(Button(
+            ( (screen_width - button_width) // 2, start_y + 3*(button_height + spacing), button_width, button_height ),
+            "Reinforcement", 
+            lambda: ai_select_callback("Reinforcement"), 
+            self.button_font))
+        
         logger.info("PlayMenu initialized with %d buttons.", len(self.buttons))
 
     def draw(self):
         self.screen.fill((255, 255, 255))
         header_surface = self.font.render("Play Menu", True, (0, 0, 0))
-        header_rect = header_surface.get_rect(center=(self.screen.get_width()//2, 100))
+        header_rect = header_surface.get_rect(center=(self.screen.get_width() // 2, 100))
         self.screen.blit(header_surface, header_rect)
         for button in self.buttons:
             button.draw(self.screen)
@@ -101,8 +127,6 @@ class PlayMenu:
     def handle_events(self, event):
         for button in self.buttons:
             button.handle_event(event)
-        #logger.debug("PlayMenu processed event: %s", event)
-
 class EndGameScreen:
     def __init__(self, screen, player_game_points, computer_game_points, main_menu_callback):
         self.screen = screen
