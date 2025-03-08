@@ -6,6 +6,7 @@ from constants import CARD_HEIGHT, CARD_WIDTH, CARD_SPACING, MARGIN, CARD_VALUES
 from ui import Button
 from ai import JustRandom
 from log_config import logger
+from utils import resource_path
 
 # ---------------------------
 # GamePlay Class Definition (Revised Rules & Draw Modification)
@@ -20,7 +21,7 @@ class GamePlay:
 
         # Load background image (or fallback)
         try:
-            self.background = pygame.image.load("assets/backgrounds/game_background.jpg")
+            self.background = pygame.image.load(resource_path("assets/backgrounds/game_background.jpg"))
             self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
             logger.info("Background image loaded and scaled.")
         except Exception as e:
@@ -30,7 +31,7 @@ class GamePlay:
 
         # Load card back image.
         try:
-            self.card_back = pygame.image.load("assets/cards/back.png")
+            self.card_back = pygame.image.load(resource_path("assets/cards/back.png"))
             self.card_back = pygame.transform.scale(self.card_back, (CARD_WIDTH, CARD_HEIGHT))
             logger.info("Card back image loaded.")
         except Exception as e:
@@ -46,7 +47,7 @@ class GamePlay:
             for rank in self.ranks:
                 filename = f"assets/cards/{rank}{suit}.png"
                 try:
-                    img = pygame.image.load(filename)
+                    img = pygame.image.load(resource_path(filename))
                     img = pygame.transform.scale(img, (CARD_WIDTH, CARD_HEIGHT))
                     self.card_images[(rank, suit)] = img
                 except Exception as e:
