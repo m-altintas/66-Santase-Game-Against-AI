@@ -170,7 +170,8 @@ class GamePlay:
             "player_hand": self.player_hand.copy(),
             "first_phase": self.first_phase,
             "current_leader": self.current_leader,
-            "allowed_suit": self.player_played[1] if self.current_leader == "player" else None
+            "allowed_suit": self.player_played[1] if self.current_leader == "player" else None,
+            "leader_card": self.player_played if self.current_leader == "player" else None,
         }
         logger.debug("Game state: %s", state)
         return state
@@ -604,6 +605,11 @@ class GamePlay:
         if self.first_phase:
             self.draw_cards(winner)
         self.check_round_end()
+        
+        if hasattr(self.opponent, "update_memory"):
+            self.opponent.update_memory([self.player_played, self.computer_played])
+            logger.info("Opponent memory updated.")
+            
         # If computer is now leader, have it lead automatically (even in second phase).
         if self.current_leader == "computer":
             logger.info("After trick resolution, computer is leading. Initiating computer lead.")
