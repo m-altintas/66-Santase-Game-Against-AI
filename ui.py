@@ -32,7 +32,7 @@ class Button:
 # MainMenu and PlayMenu Definitions
 # ---------------------------
 class MainMenu:
-    def __init__(self, screen, play_callback, help_callback):
+    def __init__(self, screen, play_callback, help_callback, settings_callback):
         self.screen = screen
         self.font = pygame.font.SysFont('Arial', 36)
         self.button_font = pygame.font.SysFont('Arial', 24)
@@ -47,6 +47,7 @@ class MainMenu:
         
         self.play_callback = play_callback
         self.help_callback = help_callback
+        self.settings_callback = settings_callback
 
         self.buttons.append(Button(
             (button_x, start_y, button_width, button_height),
@@ -56,7 +57,7 @@ class MainMenu:
             "Help", self.help_callback, self.button_font))
         self.buttons.append(Button(
             (button_x, start_y + 2*(button_height + spacing), button_width, button_height),
-            "Settings", lambda: print("Settings button clicked"), self.button_font))
+            "Settings", self.settings_callback, self.button_font))
         
         logger.info("MainMenu initialized with header: %s", self.header_text)
 
@@ -390,3 +391,49 @@ class HelpScreen:
                 self.scroll_offset = min(self.max_scroll, self.scroll_offset + self.line_height)
         
         #logger.debug("HelpScreen processed event: %s", event)
+        
+class SettingsPage:
+    def __init__(self, screen, developer_mode, toggle_callback, back_callback):
+        self.screen = screen
+        self.developer_mode = developer_mode
+        self.toggle_callback = toggle_callback  # Called with the new mode (True/False)
+        self.back_callback = back_callback
+        
+        self.font = pygame.font.SysFont("Arial", 36)
+        self.button_font = pygame.font.SysFont("Arial", 24)
+        screen_width, screen_height = self.screen.get_size()
+        button_width = 250
+        button_height = 50
+        spacing = 20
+        
+        # Toggle button shows current state
+        self.toggle_button = Button(
+            ((screen_width - button_width) // 2, (screen_height // 2) - button_height - spacing, button_width, button_height),
+            f"Developer Mode: {'ON' if self.developer_mode else 'OFF'}",
+            self.toggle,
+            self.button_font
+        )
+        # Back button to return to the Main Menu
+        self.back_button = Button(
+            ((screen_width - button_width) // 2, (screen_height // 2) + spacing, button_width, button_height),
+            "Back",
+            self.back_callback,
+            self.button_font
+        )
+    
+    def toggle(self):
+        self.developer_mode = not self.developer_mode
+        self.toggle_button.text = f"Developer Mode: {'ON' if self.developer_mode else 'OFF'}"
+        self.toggle_callback(self.developer_mode)
+    
+    def draw(self):
+        self.screen.fill((255, 255, 255))
+        title_surface = self.font.render("Settings", True, (0, 0, 0))
+        title_rect = title_surface.get_rect(center=(self.screen.get_width()//2, 100))
+        self.screen.blit(title_surface, title_rect)
+        self.toggle_button.draw(self.screen)
+        self.back_button.draw(self.screen)
+    
+    def handle_event(self, event):
+        self.toggle_button.handle_event(event)
+        self.back_button.handle_event(event)

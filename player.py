@@ -82,6 +82,7 @@ class AIPlayer(Player):
     def __init__(self, strategy="JustRandom"):
         super().__init__()
         self.strategy = strategy
+        logger.info("Initializing AI opponent with strategy: %s", strategy)
         self.ai_logic = None  # Will be set by the game engine (or via set_strategy_logic)
         if strategy == "JustRandom":
             self.set_strategy_logic(JustRandom())

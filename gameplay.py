@@ -12,12 +12,14 @@ from utils import resource_path
 # GamePlay Class Definition
 # ---------------------------
 class GamePlay:
-    def __init__(self, screen, end_game_callback, ai_strategy="JustRandom"):
+    def __init__(self, screen, end_game_callback, ai_strategy="JustRandom", developer_mode=False):
         logger.info("Initializing GamePlay.")
         self.end_game_callback = end_game_callback
         self.screen = screen
         self.screen_width, self.screen_height = self.screen.get_size()
         logger.debug("Screen dimensions: %d x %d", self.screen_width, self.screen_height)
+        
+        self.developer_mode = developer_mode
 
         # Load background image (or fallback)
         try:
@@ -141,8 +143,19 @@ class GamePlay:
         return zones
 
     def get_game_state(self):
+        if self.current_leader == "player" and self.player.played_card:
+            allowed_suit = self.player.played_card[1]
+            leader_card = self.player.played_card
+        elif self.current_leader == "opponent" and self.opponent.played_card:
+            allowed_suit = self.opponent.played_card[1]
+            leader_card = self.opponent.played_card
+        else:
+            allowed_suit = None
+            leader_card = None
+
         state = {
             "player_played": self.player.played_card,
+            "opponent_played": self.opponent.played_card,
             "player_round_points": self.player.round_points,
             "opponent_round_points": self.opponent.round_points,
             "remaining_deck": self.deck.copy(),
@@ -152,11 +165,9 @@ class GamePlay:
             "player_hand": self.player.hand.copy(),
             "first_phase": self.first_phase,
             "current_leader": self.current_leader,
-            # When following, if the opponent led, the allowed suit is the opponent's played card suit.
-            "allowed_suit": self.opponent.played_card[1] if (self.current_leader == "opponent" and self.opponent.played_card) else None,
-            "leader_card": self.opponent.played_card if self.current_leader == "opponent" else None,
+            "allowed_suit": allowed_suit,
+            "leader_card": leader_card,
         }
-        logger.debug("Game state: %s", state)
         return state
 
     def draw(self):
@@ -169,9 +180,18 @@ class GamePlay:
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
             start_x = self.zones['A'].x + (self.zones['A'].width - total_width) // 2
             y = self.zones['A'].y + (self.zones['A'].height - CARD_HEIGHT) // 2
-            for i in range(num_cards):
+            for i, card in enumerate(self.opponent.hand):
                 pos = (start_x + i * (CARD_WIDTH + CARD_SPACING), y)
-                self.screen.blit(self.card_back, pos)
+                if self.developer_mode:
+                    # In developer mode, show the actual card image.
+                    img = self.card_images.get(card)
+                    if img:
+                        self.screen.blit(img, pos)
+                    else:
+                        self.screen.blit(self.card_back, pos)
+                else:
+                    # Normal mode: display the card back.
+                    self.screen.blit(self.card_back, pos)
 
         # --- Draw Player's Hand (Zone B) ---
         if self.player.hand:

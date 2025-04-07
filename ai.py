@@ -76,39 +76,50 @@ class TrickBasedGreedy:
     def play(self, game_state, hand):
         allowed_suit = game_state.get("allowed_suit")
         trump_suit = game_state.get("trump_suit")
-
-        # If following, try to win the trick.
+        
+        # --- Following Mode ---
         if allowed_suit:
+            # Determine valid moves: must follow suit if possible; if not, use trump if available.
             if any(card[1] == allowed_suit for card in hand):
                 valid_moves = [card for card in hand if card[1] == allowed_suit]
             elif any(card[1] == trump_suit for card in hand):
                 valid_moves = [card for card in hand if card[1] == trump_suit]
             else:
                 valid_moves = hand.copy()
-
+                
             leader_card = game_state.get("leader_card")
-            best_score = -1
-            best_card = valid_moves[0]
+            
+            # Partition valid moves into winning and losing moves.
+            winning_moves = []
+            losing_moves = []
             for card in valid_moves:
-                score = 0
-                if leader_card:
-                    if self.card_wins(card, leader_card, trump_suit, allowed_suit):
-                        score = CARD_VALUES[card[0]] + CARD_VALUES[leader_card[0]]
-                    else:
-                        score = 0
+                if leader_card and self.card_wins(card, leader_card, trump_suit, allowed_suit):
+                    winning_moves.append(card)
                 else:
-                    score = CARD_VALUES[card[0]]
-                if score > best_score:
-                    best_score = score
-                    best_card = card
+                    losing_moves.append(card)
+                    
+            if winning_moves:
+                # If a winning move exists, choose the one that maximizes trick points.
+                # (Since the leader's card value is constant, we choose the highest-value card among winning moves.)
+                best_card = max(winning_moves, key=lambda card: CARD_VALUES[card[0]])
+                trick_points = CARD_VALUES[best_card[0]] + CARD_VALUES[leader_card[0]]
+                logger.info("TrickBasedGreedy (follow): Winning move selected %s with trick points %d", best_card, trick_points)
+            else:
+                # No winning move—dump the lowest-value card.
+                best_card = min(losing_moves, key=lambda card: CARD_VALUES[card[0]])
+                logger.info("TrickBasedGreedy (follow): No winning move; dumping lowest card %s", best_card)
+                
             hand.remove(best_card)
-            logger.info("TrickBasedGreedy selected card %s with score %d", best_card, best_score)
             return best_card
+        
+        # --- Leading Mode ---
         else:
-            # Leading: choose the card with highest value.
-            best_card = max(hand, key=lambda c: CARD_VALUES[c[0]])
+            # Instead of always playing the highest card, lead with the median-value card to avoid wasting your best cards.
+            sorted_hand = sorted(hand, key=lambda card: CARD_VALUES[card[0]])
+            median_index = len(sorted_hand) // 2
+            best_card = sorted_hand[median_index]
             hand.remove(best_card)
-            logger.info("TrickBasedGreedy leads with card %s", best_card)
+            logger.info("TrickBasedGreedy (lead): Leading with median card %s", best_card)
             return best_card
 
     def card_wins(self, card, leader_card, trump_suit, lead_suit):

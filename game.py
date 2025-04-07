@@ -19,7 +19,8 @@ class Game:
         self.running = True
 
         self.state = "menu"
-        self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu, help_callback=self.show_help_from_main)
+        self.developer_mode = False
+        self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu, help_callback=self.show_help_from_main, settings_callback=self.go_to_settings)
         logger.debug("Main menu initialized.")
         self.play_menu = None
         self.gameplay = None
@@ -31,15 +32,27 @@ class Game:
     def go_to_play_menu(self):
         logger.info("Switching to play menu.")
         self.state = "play"
-        self.play_menu = PlayMenu(self.screen, ai_select_callback=lambda ai: self.go_to_gameplay())
+        # Pass the ai strategy to the callback
+        self.play_menu = PlayMenu(self.screen, ai_select_callback=lambda ai: self.go_to_gameplay(ai))
         logger.debug("Play menu created.")
 
-    def go_to_gameplay(self):
-        logger.info("Starting gameplay.")
+    def go_to_gameplay(self, ai_strategy="JustRandom"):
+        logger.info("Starting gameplay with strategy: %s", ai_strategy)
         self.state = "game"
-        self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
+        self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game, ai_strategy=ai_strategy, developer_mode=self.developer_mode)
         self.gameplay.pause_callback = self.pause_game  # Set a callback
         logger.debug("Gameplay screen created.")
+        
+    def go_to_settings(self):
+        logger.info("Switching to settings page.")
+        self.state = "settings"
+        # Create a SettingsPage instance, passing the current developer mode and a toggle callback.
+        from ui import SettingsPage  # Ensure SettingsPage is imported
+        self.settings_page = SettingsPage(self.screen, self.developer_mode, self.toggle_developer_mode, self.go_to_main_menu)
+
+    def toggle_developer_mode(self, mode):
+        self.developer_mode = mode
+        logger.info("Developer mode set to %s", mode)
 
     def pause_game(self):
         logger.info("Game paused.")
@@ -103,6 +116,8 @@ class Game:
                 self.pause_menu.draw()
             elif self.state == "menu":
                 self.main_menu.draw()
+            elif self.state == "settings":
+                self.settings_page.draw()
             elif self.state == "help":
                 self.help_screen.draw()
             elif self.state == "play":
@@ -142,6 +157,8 @@ class Game:
                 self.pause_menu.handle_event(event)
             elif self.state == "menu":
                 self.main_menu.handle_events(event)
+            elif self.state == "settings":
+                self.settings_page.handle_event(event)
             elif self.state == "help":
                 self.help_screen.handle_event(event)
             elif self.state == "play" and self.play_menu:
