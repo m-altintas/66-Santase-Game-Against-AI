@@ -132,6 +132,11 @@ class AIPlayer(Player):
         self.marriages_announced.add(selected_card[1])
 
     def switch_trump(self, current_trump, trump9):
+        # If there's no trump card left, skip.
+        if current_trump is None:
+            logger.info("No trump card left to switch.")
+            return None
+
         if trump9 in self.hand:
             self.hand.remove(trump9)
             self.hand.append(current_trump)

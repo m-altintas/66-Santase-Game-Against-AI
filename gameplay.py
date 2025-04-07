@@ -476,17 +476,18 @@ class GamePlay:
         
         # --- AI checks for trump switch (only in first phase, if it has the 9 of trump) ---
         if self.first_phase:
-            trump_nine = ("9", self.trump_suit)
-            if trump_nine in self.opponent.hand:
-                # Remove trump 9 and pick up the face-up trump
-                self.opponent.hand.remove(trump_nine)
-                self.opponent.hand.append(self.trump_card)
+            if self.trump_card is not None:
+                trump_nine = ("9", self.trump_suit)
+                if trump_nine in self.opponent.hand:
+                    # Remove trump 9 and pick up the face-up trump
+                    self.opponent.hand.remove(trump_nine)
+                    self.opponent.hand.append(self.trump_card)
 
-                old_trump = self.trump_card
-                self.trump_card = trump_nine  # 9 of trump is now face up
-                logger.info("AI switched the trump! Exchanged %s with %s", old_trump, trump_nine)
+                    old_trump = self.trump_card
+                    self.trump_card = trump_nine  # 9 of trump is now face up
+                    logger.info("AI switched the trump! Exchanged %s with %s", old_trump, trump_nine)
 
-                self.message = "Opponent switched the trump 9!"
+                    self.message = "Opponent switched the trump 9!"
                 
         # Check all cards in the AI's hand to see if it has a King‐Queen pair of the same suit
         if self.first_phase and not self.ongoing_animation:
