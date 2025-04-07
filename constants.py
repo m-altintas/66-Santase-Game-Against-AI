@@ -11,7 +11,7 @@ CARD_WIDTH = 100
 CARD_HEIGHT = 150
 CARD_SPACING = 20
 
-# Card point values for trick scoring.
+# Card point values used for trick scoring
 CARD_VALUES = {
     "9": 0,
     "J": 2,

@@ -3,13 +3,13 @@ import os
 
 def resource_path(relative_path):
     """
-    Get absolute path to resource, works for development and PyInstaller.
-    When bundled, PyInstaller stores the data in a temporary folder referenced by sys._MEIPASS.
+    Get absolute path to a resource, works for both development and PyInstaller.
+    When bundled, PyInstaller stores data files in a temporary folder referenced by sys._MEIPASS.
     """
     try:
-        # If PyInstaller created a temporary folder, use that.
+        # If running under PyInstaller
         base_path = sys._MEIPASS
     except Exception:
-        # Otherwise, use the current working directory.
+        # Otherwise, use the current directory
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)

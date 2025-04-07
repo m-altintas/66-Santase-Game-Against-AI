@@ -20,7 +20,12 @@ class Game:
 
         self.state = "menu"
         self.developer_mode = False
-        self.main_menu = MainMenu(self.screen, play_callback=self.go_to_play_menu, help_callback=self.show_help_from_main, settings_callback=self.go_to_settings)
+        self.main_menu = MainMenu(
+            self.screen,
+            play_callback=self.go_to_play_menu,
+            help_callback=self.show_help_from_main,
+            settings_callback=self.go_to_settings
+        )
         logger.debug("Main menu initialized.")
         self.play_menu = None
         self.gameplay = None
@@ -32,23 +37,34 @@ class Game:
     def go_to_play_menu(self):
         logger.info("Switching to play menu.")
         self.state = "play"
-        # Pass the ai strategy to the callback
-        self.play_menu = PlayMenu(self.screen, ai_select_callback=lambda ai: self.go_to_gameplay(ai))
+        self.play_menu = PlayMenu(
+            self.screen,
+            ai_select_callback=lambda ai: self.go_to_gameplay(ai)
+        )
         logger.debug("Play menu created.")
 
     def go_to_gameplay(self, ai_strategy="JustRandom"):
         logger.info("Starting gameplay with strategy: %s", ai_strategy)
         self.state = "game"
-        self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game, ai_strategy=ai_strategy, developer_mode=self.developer_mode)
-        self.gameplay.pause_callback = self.pause_game  # Set a callback
+        self.gameplay = GamePlay(
+            self.screen,
+            end_game_callback=self.end_game,
+            ai_strategy=ai_strategy,
+            developer_mode=self.developer_mode
+        )
+        self.gameplay.pause_callback = self.pause_game
         logger.debug("Gameplay screen created.")
-        
+
     def go_to_settings(self):
         logger.info("Switching to settings page.")
         self.state = "settings"
-        # Create a SettingsPage instance, passing the current developer mode and a toggle callback.
-        from ui import SettingsPage  # Ensure SettingsPage is imported
-        self.settings_page = SettingsPage(self.screen, self.developer_mode, self.toggle_developer_mode, self.go_to_main_menu)
+        from ui import SettingsPage  # Ensure SettingsPage is imported here
+        self.settings_page = SettingsPage(
+            self.screen,
+            self.developer_mode,
+            self.toggle_developer_mode,
+            self.go_to_main_menu
+        )
 
     def toggle_developer_mode(self, mode):
         self.developer_mode = mode
@@ -73,33 +89,43 @@ class Game:
     def show_help_from_main(self):
         logger.info("Showing help screen (from main menu).")
         self.state = "help"
-        self.help_screen = HelpScreen(self.screen, go_back_callback=self.go_to_main_menu)
+        self.help_screen = HelpScreen(
+            self.screen,
+            go_back_callback=self.go_to_main_menu
+        )
 
     def show_help_from_pause(self):
         logger.info("Showing help screen (from pause menu).")
         self.state = "help"
-        self.help_screen = HelpScreen(self.screen, go_back_callback=self.resume_pause_menu)
-        
+        self.help_screen = HelpScreen(
+            self.screen,
+            go_back_callback=self.resume_pause_menu
+        )
+
     def resume_pause_menu(self):
         logger.info("Returning to pause menu from help screen.")
         self.state = "pause"
-    
+
     def restart_game(self):
         logger.info("Restarting game with current opponent.")
         self.state = "game"
-        self.gameplay = GamePlay(self.screen, end_game_callback=self.end_game)
+        self.gameplay = GamePlay(
+            self.screen,
+            end_game_callback=self.end_game,
+            ai_strategy=self.gameplay.opponent.strategy,  # Keep the same AI
+            developer_mode=self.developer_mode
+        )
         self.gameplay.pause_callback = self.pause_game
         logger.debug("Gameplay screen reinitialized after restart.")
 
     def end_game(self):
         logger.info("Ending game.")
-        # Create an instance of EndGameScreen using the overall game points.
         self.state = "endgame"
         self.endgame_screen = EndGameScreen(
             self.screen,
             self.gameplay.player_game_points,
             self.gameplay.computer_game_points,
-            self.go_to_main_menu  # A method to transition to the main menu.
+            self.go_to_main_menu
         )
         logger.debug("End game screen created. Final score: Player %s - Computer %s",
                      self.gameplay.player_game_points, self.gameplay.computer_game_points)
@@ -108,8 +134,7 @@ class Game:
         logger.info("Game loop starting.")
         while self.running:
             self.handle_events()
-            
-            # Draw based on current state.
+
             if self.state == "game":
                 self.gameplay.draw()
             elif self.state == "pause":
@@ -124,36 +149,31 @@ class Game:
                 self.play_menu.draw()
             elif self.state == "endgame":
                 self.endgame_screen.draw()
+
             pygame.display.flip()
             self.clock.tick(60)
         logger.info("Game loop terminated.")
 
     def handle_events(self):
         for event in pygame.event.get():
-            #logger.debug("Game has recieved event: %s", event)
-            
             if event.type == pygame.QUIT:
                 logger.info("QUIT event received. Exiting game loop.")
                 self.running = False
 
             # Handle the marriage timer event.
             if event.type == MARRIAGE_DONE_EVENT:
-                # Clear the marriage announcement
                 if self.gameplay.marriage_announcement is not None:
                     self.gameplay.marriage_announcement = None
-                    
                 self.gameplay.ongoing_animation = False
-
-                # Stop the timer
                 pygame.time.set_timer(MARRIAGE_DONE_EVENT, 0)
-
-                # If the AI is still the leader and hasn’t yet played a card:
-                if self.gameplay.current_leader == "opponent" and self.gameplay.opponent.played_card is None:
+                if (
+                    self.gameplay.current_leader == "opponent"
+                    and self.gameplay.opponent.played_card is None
+                ):
                     self.gameplay.computer_lead()
-                
                 continue
 
-            # Then process events for your current state.
+            # Then process events for the current state.
             if self.state == "game" and self.gameplay:
                 self.gameplay.handle_event(event)
             elif self.state == "pause":
@@ -170,12 +190,11 @@ class Game:
                 self.endgame_screen.handle_event(event)
 
     def draw(self):
-        if self.state == "menu":
-            self.main_menu.draw()
-        elif self.state == "play" and self.play_menu:
-            self.play_menu.draw()
-        elif self.state == "game" and self.gameplay:
-            self.gameplay.draw()
+        """
+        (Optional separate draw method if needed. Currently unused,
+        as drawing is handled in run() per state.)
+        """
+        pass
 
 # ---------------------------
 # Entry Point
