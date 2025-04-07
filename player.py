@@ -102,28 +102,41 @@ class AIPlayer(Player):
         self.ai_logic = ai_logic
 
     def play_card(self, game_state):
-        """
-        Uses the assigned AI strategy to pick a card.
-        """
-        if self.ai_logic is None:
-            raise ValueError("AI logic is not set for AIPlayer.")
+        # --- Check for possible marriage announcement ---
+        for suit in ["H", "D", "C", "S"]:
+            king = ("K", suit)
+            queen = ("Q", suit)
+            # If both King and Queen of the same suit are in hand and marriage not yet announced:
+            if king in self.hand and queen in self.hand and suit not in self.marriages_announced:
+                self.announce_marriage(king, queen)
+                # (Optionally, you can decide whether to immediately return
+                # or let the AI also select a card to play in this trick.)
+                break
+
+        # --- Check for possible trump switch ---
+        trump_suit = game_state.get("trump_suit")
+        # If AI is leading (i.e. current_leader == "opponent") and holds the trump 9:
+        if game_state.get("current_leader") == "opponent":
+            trump9 = ("9", trump_suit)
+            if trump9 in self.hand:
+                self.switch_trump(game_state.get("trump_card"), trump9)
+
+        # --- Proceed with normal move selection ---
         card = self.ai_logic.play(game_state, self.hand)
         self.played_card = card
-        logger.debug("AI played card: %s. Remaining hand: %s", card, self.hand)
         return card
 
     def announce_marriage(self, selected_card, partner_card):
-        """
-        Implement AI marriage strategy if desired.
-        For now, just log the action.
-        """
-        logger.debug("AI announces marriage with cards: %s and %s", selected_card, partner_card)
-        return
+        logger.info("AI announces marriage with cards: %s and %s", selected_card, partner_card)
+        # Mark the suit as announced so we don't repeat
+        self.marriages_announced.add(selected_card[1])
 
     def switch_trump(self, current_trump, trump9):
-        """
-        Implement AI trump switch strategy if desired.
-        For now, no switch is performed.
-        """
-        logger.debug("AI attempts trump switch with trump9: %s", trump9)
-        return None
+        if trump9 in self.hand:
+            self.hand.remove(trump9)
+            self.hand.append(current_trump)
+            logger.info("AI switches trump: replaced trump card %s with trump9 %s", current_trump, trump9)
+            return trump9
+        else:
+            logger.warning("AI attempted trump switch but does not have trump9.")
+            return None

@@ -138,16 +138,19 @@ class Game:
 
             # Handle the marriage timer event.
             if event.type == MARRIAGE_DONE_EVENT:
-                # Clear the marriage announcement.
+                # Clear the marriage announcement
                 if self.gameplay.marriage_announcement is not None:
                     self.gameplay.marriage_announcement = None
-                # Cancel the timer.
+                    
+                self.gameplay.ongoing_animation = False
+
+                # Stop the timer
                 pygame.time.set_timer(MARRIAGE_DONE_EVENT, 0)
-                # Mark that the computer has already processed its marriage this trick.
-                self.gameplay.computer_marriage_processed = True
-                # Force the computer to resume its turn if it is still the leader.
-                if self.gameplay.current_leader == "computer" and self.gameplay.computer_played is None:
+
+                # If the AI is still the leader and hasn’t yet played a card:
+                if self.gameplay.current_leader == "opponent" and self.gameplay.opponent.played_card is None:
                     self.gameplay.computer_lead()
+                
                 continue
 
             # Then process events for your current state.

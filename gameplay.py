@@ -473,19 +473,65 @@ class GamePlay:
 
     def computer_lead(self):
         logger.info("Opponent's turn to lead started.")
+        
+        # --- AI checks for trump switch (only in first phase, if it has the 9 of trump) ---
+        if self.first_phase:
+            trump_nine = ("9", self.trump_suit)
+            if trump_nine in self.opponent.hand:
+                # Remove trump 9 and pick up the face-up trump
+                self.opponent.hand.remove(trump_nine)
+                self.opponent.hand.append(self.trump_card)
+
+                old_trump = self.trump_card
+                self.trump_card = trump_nine  # 9 of trump is now face up
+                logger.info("AI switched the trump! Exchanged %s with %s", old_trump, trump_nine)
+
+                self.message = "Opponent switched the trump 9!"
+                
+        # Check all cards in the AI's hand to see if it has a King‐Queen pair of the same suit
+        if self.first_phase and not self.ongoing_animation:
+            for card in self.opponent.hand:
+                if card[0] in ("K", "Q"):
+                    # Determine the matching partner rank
+                    partner_rank = "Q" if card[0] == "K" else "K"
+                    partner = (partner_rank, card[1])
+
+                    # Make sure partner is in hand and marriage wasn't already announced for this suit
+                    if partner in self.opponent.hand and card[1] not in self.opponent.marriages_announced:
+                        # Mark the suit as announced
+                        self.opponent.marriages_announced.add(card[1])
+
+                        # Trigger the marriage "animation" or announcement
+                        self.marriage_announcement = (card, partner)
+                        self.marriage_time = pygame.time.get_ticks()
+                        self.ongoing_animation = True
+
+                        # Award points
+                        points = 40 if card[1] == self.trump_suit else 20
+                        self.opponent.round_points += points
+                        self.message = f"Opponent announces marriage in {card[1]}! +{points} points."
+                        logger.info("Opponent announced a marriage in suit %s for %d points", card[1], points)
+
+                        # Start the timer to clear marriage announcement (matching what you do for the player)
+                        pygame.time.set_timer(MARRIAGE_DONE_EVENT, 3000)
+                        # Stop looking once we've announced one marriage
+                        break
+        
+        # Check if we’re still showing marriage on screen:
         current_time = pygame.time.get_ticks()
         if self.marriage_announcement is not None:
-            delta = current_time - self.marriage_time
-            if delta < 3000:
-                logger.info("Marriage announcement active (delta: %d ms). Waiting to lead...", delta)
-                self.message = "Opponent announced marriage. Waiting to lead..."
+            if (current_time - self.marriage_time) < 3000:
+                # The marriage announcement is still on screen; skip playing a card for now
+                logger.info("AI marriage announcement is active; waiting to lead...")
+                self.message = "Opponent announced a marriage. Waiting to lead..."
                 return
             else:
-                logger.debug("Marriage announcement period elapsed; clearing announcement.")
+                # Once the timer is done, you can clear the announcement and proceed
                 self.marriage_announcement = None
+                self.ongoing_animation = False
+                logger.debug("AI marriage announcement period elapsed; clearing announcement.")
 
-        # AI marriage logic can be added here if desired.
-
+        # (3) Continue with the normal AI logic to choose a card to lead.
         state = self.get_game_state()
         self.opponent.played_card = self.opponent.play_card(state)
         logger.info("Opponent leads with card: %s.", self.opponent.played_card)
