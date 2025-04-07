@@ -104,8 +104,8 @@ class PlayMenu:
         # "Santase Minimax" button
         self.buttons.append(Button(
             ( (screen_width - button_width) // 2, start_y + 2*(button_height + spacing), button_width, button_height ),
-            "Santase Minimax", 
-            lambda: ai_select_callback("SantaseMinimax"), 
+            "Expectiminimax", 
+            lambda: ai_select_callback("Expectiminimax"), 
             self.button_font))
         
         # "Reinforcement" button

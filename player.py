@@ -1,5 +1,5 @@
 from log_config import logger
-from ai import JustRandom, TrickBasedGreedy
+from ai import JustRandom, TrickBasedGreedy, Expectiminimax
 
 # ---------------------------
 # Player Classes Definitions
@@ -39,6 +39,7 @@ class Player:
 class HumanPlayer(Player):
     def __init__(self):
         super().__init__()
+        self.known_cards = set()
 
     def play_card(self, card_index):
         """
@@ -48,6 +49,8 @@ class HumanPlayer(Player):
         try:
             card = self.hand.pop(card_index)
             self.played_card = card
+            if card in self.known_cards:
+                self.known_cards.remove(card)
             logger.debug("Human played card: %s. Remaining hand: %s", card, self.hand)
             return card
         except Exception as e:
@@ -71,6 +74,7 @@ class HumanPlayer(Player):
         if trump9 in self.hand:
             self.hand.remove(trump9)
             self.hand.append(current_trump)
+            self.known_cards.add(current_trump)
             logger.info("Human switched trump with trump9.")
             return trump9
         else:
@@ -88,6 +92,8 @@ class AIPlayer(Player):
             self.set_strategy_logic(JustRandom())
         elif strategy == "TrickBasedGreedy":
             self.set_strategy_logic(TrickBasedGreedy())
+        elif strategy == "Expectiminimax":
+            self.set_strategy_logic(Expectiminimax(max_depth=2, n_player_samples=5))
 
     def set_strategy_logic(self, ai_logic):
         """

@@ -167,6 +167,7 @@ class GamePlay:
             "current_leader": self.current_leader,
             "allowed_suit": allowed_suit,
             "leader_card": leader_card,
+            "player_known_cards": list(self.player.known_cards),
         }
         return state
 
@@ -400,6 +401,8 @@ class GamePlay:
                     self.player.marriages_announced.add(suit)
                     points = 40 if suit == self.trump_suit else 20
                     self.player.round_points += points
+                    self.player.known_cards.add(selected_card)
+                    self.player.known_cards.add(partner)
                     self.message = f"Marriage announced in {suit}! +{points} points."
                     return
 
