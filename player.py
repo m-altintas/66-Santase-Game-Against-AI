@@ -112,7 +112,6 @@ class AIPlayer(Player):
             self.ai_logic = JustRandom()
 
         card = self.ai_logic.play(game_state, self.hand)
-        self.played_card = card
         return card
 
     def announce_marriage(self, selected_card, partner_card):

@@ -35,7 +35,6 @@ class JustRandom:
             valid_moves = hand.copy()
 
         chosen_card = random.choice(valid_moves)
-        hand.remove(chosen_card)
         logger.info("JustRandom selected card %s", chosen_card)
         return chosen_card
 
@@ -84,7 +83,6 @@ class TrickBasedGreedy:
                 best_card = min(losing_moves, key=lambda c: CARD_VALUES[c[0]])
                 logger.info("TrickBasedGreedy (follow): No winning move; dumping %s", best_card)
 
-            hand.remove(best_card)
             return best_card
 
         # ----------------
@@ -146,12 +144,10 @@ class Expectiminimax:
                 best_move = move
 
         if best_move:
-            hand.remove(best_move)
             logger.info("Expectiminimax chose card %s with estimated value %.2f", best_move, best_value)
             return best_move
         else:
             fallback = random.choice(valid_moves)
-            hand.remove(fallback)
             logger.info("Expectiminimax fallback move: %s", fallback)
             return fallback
 

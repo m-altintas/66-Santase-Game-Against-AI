@@ -192,7 +192,11 @@ class GamePlay:
             total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
             start_x = self.zones['A'].x + (self.zones['A'].width - total_width) // 2
             y = self.zones['A'].y + (self.zones['A'].height - CARD_HEIGHT) // 2
+            
             for i, card in enumerate(self.opponent.hand):
+                if self.card_animation and self.card_animation.card == card:
+                    continue
+                
                 pos = (start_x + i * (CARD_WIDTH + CARD_SPACING), y)
                 if self.developer_mode:
                     # Show the actual card image in developer mode
@@ -364,8 +368,13 @@ class GamePlay:
             # Get the card image
             card_tuple = self.card_animation.card
             card_img = self.card_images.get(card_tuple, self.card_back)
+            
+            card_w, card_h = card_img.get_size()
+            blit_x = anim_pos[0] - card_w // 2
+            blit_y = anim_pos[1] - card_h // 2
+    
             # Blit the animating card
-            self.screen.blit(card_img, anim_pos)
+            self.screen.blit(card_img, (blit_x, blit_y))
 
             if finished:
                 # If the animation has reached the end, call on_complete
@@ -492,8 +501,6 @@ class GamePlay:
         Create a CardAnimation for the player's chosen card so it 'flies' to the table.
         Once complete, we handle the usual lead/follow logic in a callback.
         """
-        import pygame  # make sure at the top if needed
-        from math import sin  # if used for other animations, but not strictly necessary
 
         # 1) Identify the card and its start position in the player's hand
         if card_index < 0 or card_index >= len(self.player.hand):
@@ -516,10 +523,8 @@ class GamePlay:
         # 4) Create the animation with a small duration in ms (e.g., 300)
         duration = 300
         if is_lead:
-            # On complete, we do the usual logic from player_lead
             on_complete = lambda: self._on_player_card_animation_done(card_index, was_lead=True)
         else:
-            # On complete, do the usual logic from player_follow
             on_complete = lambda: self._on_player_card_animation_done(card_index, was_lead=False)
 
         self.card_animation = CardAnimation(
@@ -553,9 +558,9 @@ class GamePlay:
 
         # If it was a lead:
         if was_lead:
-            state = self.get_game_state()
-            self.opponent.played_card = self.opponent.play_card(state)
-            logger.info("Opponent responded with: %s", self.opponent.played_card)
+            card  = self.opponent.play_card(self.get_game_state())
+            self.start_opponent_card_animation(card, is_lead=False)
+            logger.info("Opponent responded with: %s", card)
             self.trick_ready = True
             self.message = "Trick ready. Click 'End Trick' to resolve."
             self.current_leader = "player"
@@ -565,6 +570,80 @@ class GamePlay:
             self.message = "Trick ready. Click 'End Trick' to resolve."
 
         # (Done!)
+
+    def start_opponent_card_animation(self, card, is_lead=True):
+        """
+        Animate the opponent's chosen card from its position in the top row (Zone A)
+        down to the table (Zone D if leading, or E if following).
+        """
+        # 1) Find the index of 'card' in the opponent's hand (to compute its exact start position)
+        try:
+            idx = self.opponent.hand.index(card)
+        except ValueError:
+            # If it’s not in the hand, maybe we just skip animation or handle error
+            logger.error("Attempted to animate an opponent card that isn't in the hand: %s", card)
+            return
+
+        # 2) Calculate the card’s start position on screen
+        num_cards = len(self.opponent.hand)
+        total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
+        start_x = self.zones['A'].x + (self.zones['A'].width - total_width) // 2 + idx * (CARD_WIDTH + CARD_SPACING)
+        start_y = self.zones['A'].y + (self.zones['A'].height - CARD_HEIGHT) // 2
+
+        # 3) Decide the end position
+        #    If the AI is leading a trick, it typically goes to Zone D. If following, maybe Zone D or E,
+        #    but let’s assume D for the “opponent’s side”.
+        end_rect = self.zones['D'] if is_lead else self.zones['D']
+        # ^ If you do want it to appear in E when following, you can set end_rect = self.zones['E'] for follow
+        end_x, end_y = end_rect.center
+
+        # 4) Create the animation with a small duration (300 ms, for example)
+        duration = 300
+        if is_lead:
+            on_complete = lambda: self._on_opponent_card_animation_done(card, was_lead=True)
+        else:
+            on_complete = lambda: self._on_opponent_card_animation_done(card, was_lead=False)
+
+        self.card_animation = CardAnimation(
+            card=card,
+            start_pos=(start_x, start_y),
+            end_pos=(end_x, end_y),
+            duration=duration,
+            on_complete=on_complete
+        )
+
+    def _on_opponent_card_animation_done(self, card, was_lead=True):
+        """
+        Called once the AI card finishes "flying" to the table.
+        Remove the card from the opponent's hand and set opponent.played_card = card.
+        If it's a lead, we do typical 'lead' logic (e.g. self.current_leader = "opponent").
+        If it's a follow, we finalize the trick readiness.
+        """
+        anim = self.card_animation
+        self.card_animation = None  # Clear it
+
+        if not anim:
+            return  # safety check
+
+        # Remove the card from the AI's hand
+        try:
+            self.opponent.hand.remove(card)
+            self.opponent.played_card = card
+            logger.debug("Opponent card animation done. Freed card: %s. Opponent hand: %s", 
+                        card, self.opponent.hand)
+        except Exception as e:
+            logger.error("Error removing card from opponent's hand after animation: %s", e)
+            return
+
+        if was_lead:
+            # If the opponent was leading, set some helpful message
+            self.current_leader = "opponent"
+            self.trick_ready = False  # If you want the player to follow next
+            self.message = "Opponent leads. Your turn to follow."
+        else:
+            # If it was a follow, you might do:
+            self.trick_ready = True
+            self.message = "Trick ready. Click 'End Trick' to resolve."
 
     def computer_lead(self):
         """
@@ -612,10 +691,10 @@ class GamePlay:
                 self.marriage_announcement = None
                 self.ongoing_animation = False
 
-        # Normal AI logic to choose a card to lead
-        state = self.get_game_state()
-        self.opponent.played_card = self.opponent.play_card(state)
-        logger.info("Opponent leads with card: %s.", self.opponent.played_card)
+        # Normal AI logic to choose a card to lead  
+        lead_card = self.opponent.play_card(self.get_game_state())
+        self.start_opponent_card_animation(lead_card, is_lead=True)
+        logger.info("Opponent leads with card: %s.", lead_card)
         self.current_leader = "opponent"
         self.message = "Opponent leads. Your turn to follow."
         self.trick_ready = False
