@@ -18,6 +18,8 @@ class GamePlay:
         self.screen = screen
         self.screen_width, self.screen_height = self.screen.get_size()
         self.developer_mode = developer_mode
+        
+        self.card_animation = None
 
         logger.debug("Screen dimensions: %d x %d", self.screen_width, self.screen_height)
 
@@ -355,12 +357,28 @@ class GamePlay:
         msg_text = font_small.render(self.message, True, (255, 255, 255))
         msg_rect = msg_text.get_rect(center=(self.screen_width // 2, self.zones['B'].y - 30))
         self.screen.blit(msg_text, msg_rect)
+        
+        # Finally, draw any active card animation
+        if self.card_animation:
+            (anim_pos, finished) = self.card_animation.update_position()
+            # Get the card image
+            card_tuple = self.card_animation.card
+            card_img = self.card_images.get(card_tuple, self.card_back)
+            # Blit the animating card
+            self.screen.blit(card_img, anim_pos)
+
+            if finished:
+                # If the animation has reached the end, call on_complete
+                if self.card_animation.on_complete:
+                    self.card_animation.on_complete()
 
     def handle_event(self, event):
         """
         Handle mouse clicks, button interactions, etc.
         """
         if self.ongoing_animation:
+            return
+        if self.card_animation:
             return
 
         if event.type != pygame.MOUSEBUTTONDOWN:
@@ -450,9 +468,10 @@ class GamePlay:
                     return
 
                 if self.current_leader == "player":
-                    self.player_lead(i)
+                    self.start_player_card_animation(i, is_lead=True)
                 else:
-                    self.player_follow(i)
+                    self.start_player_card_animation(i, is_lead=False)
+                    
                 break
 
     def _player_play_card(self, card_index, move_type="move"):
@@ -468,25 +487,84 @@ class GamePlay:
             logger.error("Error in player %s: %s", move_type, e)
             return None
 
-    def player_lead(self, card_index):
-        logger.info("Player is leading with card at index %d.", card_index)
-        card = self._player_play_card(card_index, "lead")
-        if card is None:
-            return
-        state = self.get_game_state()
-        self.opponent.played_card = self.opponent.play_card(state)
-        logger.info("Opponent responded with: %s", self.opponent.played_card)
-        self.trick_ready = True
-        self.message = "Trick ready. Click 'End Trick' to resolve."
-        self.current_leader = "player"
+    def start_player_card_animation(self, card_index, is_lead=True):
+        """
+        Create a CardAnimation for the player's chosen card so it 'flies' to the table.
+        Once complete, we handle the usual lead/follow logic in a callback.
+        """
+        import pygame  # make sure at the top if needed
+        from math import sin  # if used for other animations, but not strictly necessary
 
-    def player_follow(self, card_index):
-        logger.info("Player is following with card at index %d.", card_index)
-        card = self._player_play_card(card_index, "follow")
-        if card is None:
+        # 1) Identify the card and its start position in the player's hand
+        if card_index < 0 or card_index >= len(self.player.hand):
+            return  # just in case
+
+        selected_card = self.player.hand[card_index]
+
+        # 2) Compute the card's current on-screen position
+        #    (similar to handle_event's logic for card_rect)
+        num_cards = len(self.player.hand)
+        total_width = num_cards * CARD_WIDTH + (num_cards - 1) * CARD_SPACING
+        start_x = self.zones['B'].x + (self.zones['B'].width - total_width) // 2 + card_index*(CARD_WIDTH+CARD_SPACING)
+        start_y = self.zones['B'].y + (self.zones['B'].height - CARD_HEIGHT)//2
+
+        # 3) Decide the end position (Zone E if player is leading, or E if following).
+        #    Actually, your code uses Zone E for the player's card, whether leading or following.
+        end_rect = self.zones['E']
+        end_x, end_y = end_rect.center
+
+        # 4) Create the animation with a small duration in ms (e.g., 300)
+        duration = 300
+        if is_lead:
+            # On complete, we do the usual logic from player_lead
+            on_complete = lambda: self._on_player_card_animation_done(card_index, was_lead=True)
+        else:
+            # On complete, do the usual logic from player_follow
+            on_complete = lambda: self._on_player_card_animation_done(card_index, was_lead=False)
+
+        self.card_animation = CardAnimation(
+            card=selected_card,
+            start_pos=(start_x, start_y),
+            end_pos=(end_x, end_y),
+            duration=duration,
+            on_complete=on_complete
+        )
+
+    def _on_player_card_animation_done(self, card_index, was_lead=True):
+        """
+        This callback runs once the card animation finishes. 
+        We remove the card from the player's hand, set played_card, 
+        and do the typical lead or follow logic.
+        """
+        # Clear the CardAnimation from the game state
+        anim = self.card_animation
+        self.card_animation = None
+        if not anim:
+            return  # safety check
+
+        # Pop the card
+        try:
+            card = self.player.hand.pop(card_index)
+            self.player.played_card = card
+            logger.debug("Player card animation done. Freed card: %s. Hand now: %s", card, self.player.hand)
+        except Exception as e:
+            logger.error("Error removing card from player's hand after animation: %s", e)
             return
-        self.trick_ready = True
-        self.message = "Trick ready. Click 'End Trick' to resolve."
+
+        # If it was a lead:
+        if was_lead:
+            state = self.get_game_state()
+            self.opponent.played_card = self.opponent.play_card(state)
+            logger.info("Opponent responded with: %s", self.opponent.played_card)
+            self.trick_ready = True
+            self.message = "Trick ready. Click 'End Trick' to resolve."
+            self.current_leader = "player"
+        else:
+            # If it was a follow
+            self.trick_ready = True
+            self.message = "Trick ready. Click 'End Trick' to resolve."
+
+        # (Done!)
 
     def computer_lead(self):
         """
@@ -823,3 +901,32 @@ class GamePlay:
             self.pause_callback()
         else:
             logger.error("Pause callback not defined in GamePlay.")
+
+class CardAnimation:
+    def __init__(self, card, start_pos, end_pos, duration, on_complete=None):
+        """
+        :param card: The (rank, suit) tuple
+        :param start_pos: (x, y) where the card starts
+        :param end_pos: (x, y) where the card ends
+        :param duration: total milliseconds for the animation
+        :param on_complete: callback function to run once finished
+        """
+        self.card = card
+        self.start_x, self.start_y = start_pos
+        self.end_x, self.end_y = end_pos
+        self.duration = duration
+        self.on_complete = on_complete
+        self.start_time = pygame.time.get_ticks()  # record the start time
+
+    def update_position(self):
+        """Compute the current position based on elapsed time and duration."""
+        now = pygame.time.get_ticks()
+        elapsed = now - self.start_time
+        progress = elapsed / self.duration
+        if progress > 1.0:
+            progress = 1.0
+
+        # Linear interpolation (lerp) along x and y
+        current_x = self.start_x + (self.end_x - self.start_x) * progress
+        current_y = self.start_y + (self.end_y - self.start_y) * progress
+        return (current_x, current_y), (progress >= 1.0)
