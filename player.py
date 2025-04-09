@@ -1,5 +1,5 @@
 from log_config import logger
-from ai import JustRandom, TrickBasedGreedy, Expectiminimax
+from ai import JustRandom, TrickBasedGreedy, Expectiminimax, MCTS
 
 # ---------------------------
 # Player Classes Definitions
@@ -89,7 +89,9 @@ class AIPlayer(Player):
         elif strategy_name == "TrickBasedGreedy":
             self.ai_logic = TrickBasedGreedy()
         elif strategy_name == "Expectiminimax":
-            self.ai_logic = Expectiminimax(max_depth=2, n_player_samples=5)
+            self.ai_logic = Expectiminimax(max_depth=4, n_player_samples=10)
+        elif strategy_name == "MCTS":
+            self.ai_logic = MCTS(num_simulations=100)
         else:
             # If an unknown strategy is passed, default to JustRandom
             logger.warning("Unknown AI strategy '%s'. Defaulting to JustRandom.", strategy_name)
@@ -126,3 +128,8 @@ class AIPlayer(Player):
             return trump9
         logger.warning("AI attempted trump switch but doesn't have trump9 or no trump card is available.")
         return None
+
+    def should_close_game(self, game_state):
+        if self.ai_logic and hasattr(self.ai_logic, 'should_close_game'):
+            return self.ai_logic.should_close_game(game_state, self.hand)
+        return False

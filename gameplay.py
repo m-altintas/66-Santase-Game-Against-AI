@@ -650,6 +650,11 @@ class GamePlay:
         Opponent (AI) leads a trick.
         """
         logger.info("Opponent's turn to lead started.")
+        
+        # Check if the opponent decides to close the game
+        if self.opponent.should_close_game(self.get_game_state()):
+            self.close_game_by_opponent()
+            return
 
         # AI checks for trump switch if it has the 9 of trump in first phase
         if self.first_phase and self.trump_card is not None:
@@ -937,6 +942,15 @@ class GamePlay:
         self.first_phase = False
         self.game_closed = True
         self.message = "You closed the game. Second phase rules apply."
+
+    def close_game_by_opponent(self):
+        """
+        Handles the game closing decision initiated by the opponent.
+        """
+        logger.info("Opponent closed the game.")
+        self.first_phase = False
+        self.game_closed = True
+        self.message = "Opponent closed the game. Second phase rules apply."
 
     def switch_trump(self):
         """

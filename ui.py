@@ -102,7 +102,7 @@ class PlayMenu:
 
         self.buttons.append(Button(
             ((screen_width - button_width) // 2, start_y, button_width, button_height),
-            "Just Random", 
+            "Extra: Just Random", 
             lambda: ai_select_callback("JustRandom"), 
             self.button_font
         ))
@@ -115,19 +115,19 @@ class PlayMenu:
         ))
         self.buttons.append(Button(
             ((screen_width - button_width) // 2, start_y + 2*(button_height + spacing),
-             button_width, button_height),
-            "Expectiminimax", 
-            lambda: ai_select_callback("Expectiminimax"), 
+            button_width, button_height),
+            "MCTS", 
+            lambda: ai_select_callback("MCTS"), 
             self.button_font
         ))
         self.buttons.append(Button(
             ((screen_width - button_width) // 2, start_y + 3*(button_height + spacing),
              button_width, button_height),
-            "Reinforcement", 
-            lambda: ai_select_callback("Reinforcement"), 
+            "Expectiminimax", 
+            lambda: ai_select_callback("Expectiminimax"), 
             self.button_font
         ))
-
+        
         logger.info("PlayMenu initialized with %d buttons.", len(self.buttons))
 
     def draw(self):

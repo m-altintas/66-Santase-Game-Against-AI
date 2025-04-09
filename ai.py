@@ -38,6 +38,9 @@ class JustRandom:
         logger.info("JustRandom selected card %s", chosen_card)
         return chosen_card
 
+    def should_close_game(self, game_state, hand):
+        # For now, always return False (placeholder)
+        return False
 
 class TrickBasedGreedy:
     """
@@ -112,6 +115,10 @@ class TrickBasedGreedy:
 
         # Compare values if same suit
         return CARD_VALUES[card[0]] > CARD_VALUES[leader_card[0]]
+
+    def should_close_game(self, game_state, hand):
+        # For now, always return False (placeholder)
+        return False
 
 
 class Expectiminimax:
@@ -374,3 +381,220 @@ class Expectiminimax:
         (AI points - player points).
         """
         return state["opponent_round_points"] - state["player_round_points"]
+
+    def should_close_game(self, game_state, hand):  
+        # For now, always return False (placeholder)
+        return False
+    
+class MCTS:
+    """
+    A full Monte Carlo Tree Search (MCTS) AI implementation for Santase.
+    It builds a search tree using random playouts to statistically evaluate moves.
+    """
+    def __init__(self, num_simulations=100, rollout_depth=10):
+        self.num_simulations = num_simulations
+        self.rollout_depth = rollout_depth
+        self.exploration_constant = math.sqrt(2)
+        logger.debug("MCTS AI initialized with %d simulations and rollout depth %d", num_simulations, rollout_depth)
+
+    class Node:
+        def __init__(self, state, move=None, parent=None):
+            self.state = state             # a deep copy of the game state (dictionary)
+            self.move = move               # the move (card) that led to this state
+            self.parent = parent
+            self.children = []
+            self.wins = 0.0
+            self.visits = 0.0
+            self.untried_moves = []        # moves available from this state
+
+        def uct_value(self, exploration_constant):
+            if self.visits == 0:
+                return float('inf')
+            return (self.wins / self.visits) + exploration_constant * math.sqrt(math.log(self.parent.visits) / self.visits)
+
+        def is_fully_expanded(self):
+            return len(self.untried_moves) == 0
+
+        def best_child(self, exploration_constant):
+            return max(self.children, key=lambda child: child.uct_value(exploration_constant))
+
+    def play(self, game_state, hand):
+        """
+        Given the current game state and opponent's hand,
+        run MCTS simulations and return the chosen card to play.
+        """
+        # Create the root node; assume game_state reflects the current state.
+        root = self.Node(copy.deepcopy(game_state))
+        root.untried_moves = self._get_valid_moves(root.state)
+
+        # Run simulations.
+        for _ in range(self.num_simulations):
+            node = root
+            state = copy.deepcopy(game_state)
+
+            # Selection.
+            while not self._is_terminal(state) and node.is_fully_expanded() and node.children:
+                node = node.best_child(self.exploration_constant)
+                state = self._simulate_move(state, node.move, current_turn=True)
+            
+            # Expansion.
+            if not self._is_terminal(state) and node.untried_moves:
+                move = random.choice(node.untried_moves)
+                state = self._simulate_move(state, move, current_turn=True)
+                child_node = self.Node(copy.deepcopy(state), move=move, parent=node)
+                child_node.untried_moves = self._get_valid_moves(state)
+                node.children.append(child_node)
+                node.untried_moves.remove(move)
+                node = child_node
+
+            # Rollout.
+            reward = self._rollout(state)
+            
+            # Backpropagation.
+            while node is not None:
+                node.visits += 1
+                node.wins += reward
+                node = node.parent
+
+        # Choose the move with the highest visit count.
+        if root.children:
+            best = max(root.children, key=lambda child: child.visits)
+            logger.info("MCTS selected move: %s with %d visits and average reward %.2f", best.move, best.visits, best.wins/best.visits)
+            return best.move
+        else:
+            moves = self._get_valid_moves(game_state)
+            chosen = random.choice(moves) if moves else None
+            logger.info("MCTS fallback selected move: %s", chosen)
+            return chosen
+
+    def should_close_game(self, game_state, hand):
+        """
+        Decide whether to close the game.
+        (A fully developed version might simulate future outcomes.
+         For now, we simply return False.)
+        """
+        return False
+
+    # ------------------- Helper Functions -------------------
+
+    def _sample_possible_player_hand(self, state):
+        """
+        Constructs a plausible sample for the player's hand using imperfect information.
+        It removes known cards from the full deck and then randomly selects a hand.
+        """
+        full_deck = [(rank, suit) for suit in ["H", "D", "C", "S"] 
+                                for rank in ["9", "J", "Q", "K", "10", "A"]]
+        known = set()
+        # Known cards: opponent's hand, trump card, played cards, and remaining deck.
+        for card in state.get("opponent_hand", []):
+            known.add(card)
+        if state.get("trump_card"):
+            known.add(state["trump_card"])
+        if state.get("player_played"):
+            known.add(state["player_played"])
+        if state.get("opponent_played"):
+            known.add(state["opponent_played"])
+        for card in state.get("remaining_deck", []):
+            known.add(card)
+        if "player_known_cards" in state:
+            known.update(state["player_known_cards"])
+        
+        unknown = [card for card in full_deck if card not in known]
+        
+        # Assume the original player's hand size is the length stored in state.
+        hand_size = len(state.get("player_hand", []))
+        if len(unknown) >= hand_size:
+            sampled_hand = random.sample(unknown, hand_size)
+        else:
+            sampled_hand = unknown  # In extreme cases, if unknown is too short.
+        return sampled_hand
+
+    def _get_valid_moves(self, state):
+        """Return the valid moves from the opponent's hand based on allowed and trump suit."""
+        allowed_suit = state.get("allowed_suit")
+        trump_suit = state.get("trump_suit")
+        hand = state.get("opponent_hand", [])
+        if allowed_suit:
+            moves = [card for card in hand if card[1] == allowed_suit]
+            if moves:
+                return moves
+            moves = [card for card in hand if card[1] == trump_suit]
+            if moves:
+                return moves
+        return hand.copy()
+
+    def _get_valid_moves_for_player(self, state):
+        """
+        Returns valid moves for the player's turn using a sample of unknown cards,
+        to simulate imperfect information.
+        """
+        allowed_suit = state.get("allowed_suit")
+        trump_suit = state.get("trump_suit")
+        sampled_hand = self._sample_possible_player_hand(state)
+        
+        if allowed_suit:
+            moves = [card for card in sampled_hand if card[1] == allowed_suit]
+            if moves:
+                return moves
+            moves = [card for card in sampled_hand if card[1] == trump_suit]
+            if moves:
+                return moves
+        return sampled_hand.copy()
+
+    def _is_terminal(self, state):
+        """A terminal state: when both player and opponent hands are empty."""
+        return (len(state.get("player_hand", [])) == 0 and len(state.get("opponent_hand", [])) == 0)
+
+    def _evaluate(self, state):
+        """Simple evaluation heuristic: difference in round points (AI - player)."""
+        return state.get("opponent_round_points", 0) - state.get("player_round_points", 0)
+
+    def _simulate_move(self, state, move, current_turn=True):
+        """
+        Simulate applying a move to the current state.
+        If current_turn is True, it's the AI's (opponent's) turn;
+        otherwise, simulate a player's move.
+        This implementation only simulates the move (and updates allowed_suit and leader_card)
+        without handling drawing cards or special moves.
+        """
+        new_state = copy.deepcopy(state)
+        if current_turn:
+            if move in new_state.get("opponent_hand", []):
+                new_state["opponent_hand"].remove(move)
+            new_state["opponent_played"] = move
+            if new_state.get("player_played") is None:
+                new_state["allowed_suit"] = move[1]
+                new_state["leader_card"] = move
+                new_state["current_leader"] = "opponent"
+        else:
+            if move in new_state.get("player_hand", []):
+                new_state["player_hand"].remove(move)
+            new_state["player_played"] = move
+            if new_state.get("opponent_played") is None:
+                new_state["allowed_suit"] = move[1]
+                new_state["leader_card"] = move
+                new_state["current_leader"] = "player"
+        return new_state
+
+    def _rollout(self, state):
+        """
+        Perform a random playout (rollout) starting from the given state until a terminal state
+        or until a fixed rollout depth is reached.
+        Alternates turns between AI and player using random moves.
+        For the player's turn, use a sampled hand to avoid perfect information.
+        """
+        # Determine whose turn it is based on the current leader.
+        current_turn = (state.get("current_leader") == "opponent")
+        for _ in range(self.rollout_depth):
+            if self._is_terminal(state):
+                break
+            if current_turn:
+                valid_moves = self._get_valid_moves(state)
+            else:
+                valid_moves = self._get_valid_moves_for_player(state)
+            if not valid_moves:
+                break
+            move = random.choice(valid_moves)
+            state = self._simulate_move(state, move, current_turn=current_turn)
+            current_turn = not current_turn
+        return self._evaluate(state)
