@@ -895,7 +895,7 @@ class GamePlay:
             self.message = "Round ended in a tie. No game points awarded."
             logger.info("Round tied. No game points awarded.")
 
-        if self.player_game_points >= 1 or self.opponent_game_points >= 1:
+        if self.player_game_points >= 11 or self.opponent_game_points >= 11:
             self.message += " Game Over."
             logger.info("Game over. Final: Player %d - Opponent %d",
                         self.player_game_points, self.opponent_game_points)
