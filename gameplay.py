@@ -221,6 +221,8 @@ class GamePlay:
                 allowed_suit = self.opponent.played_card[1]
 
             for i, card in enumerate(self.player.hand):
+                if self.card_animation and self.card_animation.card == card:
+                    continue
                 pos_x = start_x + i * (CARD_WIDTH + CARD_SPACING)
                 # Apply shake animation if needed
                 if self.shake_card_index is not None and i == self.shake_card_index:
@@ -893,7 +895,7 @@ class GamePlay:
             self.message = "Round ended in a tie. No game points awarded."
             logger.info("Round tied. No game points awarded.")
 
-        if self.player_game_points >= 11 or self.opponent_game_points >= 11:
+        if self.player_game_points >= 1 or self.opponent_game_points >= 1:
             self.message += " Game Over."
             logger.info("Game over. Final: Player %d - Opponent %d",
                         self.player_game_points, self.opponent_game_points)

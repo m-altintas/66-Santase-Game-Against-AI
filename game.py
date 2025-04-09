@@ -5,6 +5,7 @@ from constants import SCREEN_WIDTH, SCREEN_HEIGHT, MARRIAGE_DONE_EVENT
 from ui import MainMenu, PlayMenu, PauseMenu, HelpScreen, EndGameScreen
 from gameplay import GamePlay
 from log_config import logger
+from stats_logger import append_game_result
 
 # ---------------------------
 # Game Class (State Manager)
@@ -124,11 +125,12 @@ class Game:
         self.endgame_screen = EndGameScreen(
             self.screen,
             self.gameplay.player_game_points,
-            self.gameplay.computer_game_points,
+            self.gameplay.opponent_game_points,
             self.go_to_main_menu
         )
+        self.record_game_statistics(self.gameplay, self.gameplay.opponent.strategy)
         logger.debug("End game screen created. Final score: Player %s - Computer %s",
-                     self.gameplay.player_game_points, self.gameplay.computer_game_points)
+                     self.gameplay.player_game_points, self.gameplay.opponent_game_points)
 
     def run(self):
         logger.info("Game loop starting.")
@@ -196,6 +198,47 @@ class Game:
         """
         pass
 
+    def record_game_statistics(self, gameplay, ai_strategy):
+        # Calculate game-level statistics. You need to fill these in based on your game data.
+        
+        # Example statistics – these values you can compute from the game state (gameplay)
+        # For instance, you might have attributes for rounds, tricks etc.
+        games_played = 1  # each finished game is counted once
+        # Assume that if player's game points are less than 11, then the AI won (or vice versa)
+        games_won = 1 if gameplay.opponent_game_points >= 11 else 0
+        games_losed = 1 - games_won
+        win_rate = 100.0 if games_won else 0.0  # For a single game, it’s binary; later, aggregate across multiple games.
+        
+        # Calculate average round score (difference between the AI's round points and the player's round points)
+        # You might have stored round stats if a game consists of multiple rounds.
+        average_round_score = (gameplay.opponent.round_points - gameplay.player.round_points)
+        
+        # Calculate trick statistics. If you maintain counters across rounds:
+        tricks_played = gameplay.opponent.tricks + gameplay.player.tricks
+        tricks_won = gameplay.opponent.tricks  # assuming if AI is opponent, then its tricks are the ones it wins
+        tricks_losed = gameplay.player.tricks
+        trick_success_rate = (tricks_won / tricks_played * 100) if tricks_played > 0 else 0.0
+        
+        # Calculate tricks per game. This could simply be total tricks played
+        tricks_per_game = tricks_played
+
+        # Build the dictionary using the CSV schema
+        game_result = {
+            "ai_model": ai_strategy,
+            "games_played": games_played,
+            "games_won": games_won,
+            "games_losed": games_losed,
+            "win_rate": win_rate,
+            "average_round_score": average_round_score,
+            "tricks_played": tricks_played,
+            "tricks_won": tricks_won,
+            "tricks_losed": tricks_losed,
+            "trick_success_rate": trick_success_rate,
+            "tricks_per_game": tricks_per_game
+        }
+
+        # Append the result to the CSV file.
+        append_game_result(game_result)
 # ---------------------------
 # Entry Point
 # ---------------------------
