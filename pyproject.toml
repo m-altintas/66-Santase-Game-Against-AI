@@ -11,6 +11,9 @@ license = "MIT"
 requires-python = ">=3.12"
 dependencies = []
 
+[project.scripts]
+santase = "santase.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
