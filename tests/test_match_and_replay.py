@@ -5,7 +5,7 @@ import random
 import pytest
 from play_utils import random_match
 
-from santase.engine import legal_actions, match_step, new_match
+from santase.engine import Declare, legal_actions, match_step, new_match
 from santase.replay import MatchRecord, ReplayError, record_actions, replay
 
 
@@ -65,6 +65,13 @@ def test_replay_rejects_illegal_actions() -> None:
         '{"seed": 1, "target": 0, "actions": [], "rules_version": 1}',
         '{"seed": true, "target": 11, "actions": [], "rules_version": 1}',
         '{"seed": 1, "target": 11, "actions": [3], "rules_version": 1}',
+        '{"seed": 1, "target": 11, "actions": [], "rules_version": true}',
+        '{"seed": 1, "target": 5000, "actions": [], "rules_version": 1}',
+        '{"seed": 1, "target": 11, "actions": "play:AS", "rules_version": 1}',
+        '{"seed": "\\ud800", "target": 11, "actions": [], "rules_version": 1}',  # lone surrogate
+        "1" * 5000,  # beyond Python's int digit limit
+        "[" * 100_000,  # deep nesting
+        "[1, 2]",
     ],
 )
 def test_malformed_records_are_rejected(text: str) -> None:
@@ -79,3 +86,15 @@ def test_unknown_rules_version_is_rejected() -> None:
 
 def test_int_and_string_seeds_give_different_matches() -> None:
     assert new_match(3).deal != new_match("3").deal
+
+
+def test_string_seed_round_trips() -> None:
+    record = record_actions("table-7", 11, [])
+    assert MatchRecord.from_json(record.to_json()) == record
+    assert replay(record).deal == new_match("table-7").deal
+
+
+def test_stepping_a_finished_match_fails() -> None:
+    match, _ = random_match(2)
+    with pytest.raises(ValueError, match="over"):
+        match_step(match, Declare())

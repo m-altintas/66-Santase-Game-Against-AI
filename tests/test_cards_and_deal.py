@@ -1,5 +1,6 @@
 """R1: cards and deal."""
 
+import pytest
 from helpers import c
 
 from santase.engine import FULL_DECK, Card, Play, Rank, cards, deal_from_order, new_deal
@@ -61,3 +62,14 @@ def test_first_lead_offers_only_plays() -> None:
 
     state = deal_from_order(ORDER, dealer=1)
     assert legal_actions(state) == tuple(Play(card) for card in state.hands[0])
+
+
+@pytest.mark.parametrize("text", ["", "X", "1H", "AZ", "10"])
+def test_bad_card_text_is_rejected(text: str) -> None:
+    with pytest.raises(ValueError, match="not a Santase card"):
+        Card.parse(text)
+
+
+def test_deal_needs_a_full_deck() -> None:
+    with pytest.raises(ValueError, match="permutation"):
+        deal_from_order(ORDER[:-1], dealer=0)
