@@ -9,6 +9,7 @@ the opponent's hand); the search bots also use it on determinized worlds.
 from __future__ import annotations
 
 from santase.engine import Action, DealState, Declare, legal_actions, step
+from santase.engine.state import WIN_THRESHOLD
 
 Key = tuple[object, ...]
 
@@ -95,6 +96,13 @@ class EndgameSolver:
 
 
 def _ordered(state: DealState) -> list[Action]:
+    """A correct "out" first (it usually cuts the search), a wrong one last.
+
+    A wrong "out" is never better than playing on (the declarer already has a trick, so
+    playing on costs at most the same 2 game points), only sometimes equal. Trying it last
+    makes ties go to playing on instead of conceding.
+    """
+    correct = state.card_points(state.turn) >= WIN_THRESHOLD
     actions = list(legal_actions(state))
-    actions.sort(key=lambda a: not isinstance(a, Declare))  # try the declaration first
+    actions.sort(key=lambda a: (isinstance(a, Declare) and not correct, not isinstance(a, Declare)))
     return actions

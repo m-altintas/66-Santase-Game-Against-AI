@@ -49,3 +49,14 @@ def test_solver_is_fast_enough_on_full_endgames() -> None:
     for state in states:
         EndgameSolver().solve(state)
     assert (time.perf_counter() - start) / len(states) < 0.5
+
+
+def test_solver_never_concedes_with_a_wrong_out() -> None:
+    from santase.engine import Declare
+
+    checked = 0
+    for state in late_strict_states(60, 6):
+        if Declare() in legal_actions(state) and state.card_points(state.turn) < 66:
+            assert EndgameSolver().solve(state)[1] != Declare()
+            checked += 1
+    assert checked > 5

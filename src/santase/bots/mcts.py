@@ -139,6 +139,7 @@ class DeterminizedMCTS:
             world = determinize(obs, rng, knowledge)
             if world.strict:
                 values = EndgameSolver().values(world)
+                values.pop(Declare(), None)  # own points < 66 here: "out" would be wrong
                 top = max(values.values())
                 best = [a for a, v in values.items() if v == top]
                 for action in best:
