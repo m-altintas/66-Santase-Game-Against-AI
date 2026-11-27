@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import random
 import time
+from collections.abc import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 
@@ -73,11 +74,32 @@ def schedule(
     return jobs
 
 
-def run(specs: list[str], deals: int, workers: int = 1, prefix: str = "arena") -> list[DealResult]:
+def run(
+    specs: list[str],
+    deals: int,
+    workers: int = 1,
+    prefix: str = "arena",
+    progress: Callable[[int, int], None] | None = None,
+) -> list[DealResult]:
     if len(set(specs)) != len(specs):
         raise ValueError("bot specs must be distinct")
     jobs = schedule(specs, deals, prefix)
+    results: list[DealResult] = []
     if workers <= 1:
-        return [_job(job) for job in jobs]
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(_job, jobs, chunksize=4))
+        stream: Iterable[DealResult] = map(_job, jobs)
+        results = _collect(stream, len(jobs), progress)
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            results = _collect(pool.map(_job, jobs, chunksize=4), len(jobs), progress)
+    return results
+
+
+def _collect(
+    stream: Iterable[DealResult], total: int, progress: Callable[[int, int], None] | None
+) -> list[DealResult]:
+    results: list[DealResult] = []
+    for result in stream:
+        results.append(result)
+        if progress is not None:
+            progress(len(results), total)
+    return results

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -21,7 +22,17 @@ def main() -> None:
     args = parser.parse_args()
 
     start = time.perf_counter()
-    results = run(args.bots, args.deals, args.workers)
+
+    def progress(done: int, total: int) -> None:
+        step = max(1, total // 20)
+        if done % step == 0 or done == total:
+            elapsed = time.perf_counter() - start
+            eta = elapsed / done * (total - done)
+            print(
+                f"{done}/{total} deals, {elapsed:.0f}s elapsed, ~{eta:.0f}s left", file=sys.stderr
+            )
+
+    results = run(args.bots, args.deals, args.workers, progress=progress)
     summary = summarize(args.bots, results)
     summary["seconds"] = time.perf_counter() - start
     args.out.mkdir(parents=True, exist_ok=True)
