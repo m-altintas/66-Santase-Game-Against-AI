@@ -117,7 +117,9 @@ take the option that keeps decisions meaningful without adding hidden traps.
 - **R8.2** If all cards are played and nobody declared, the player with more card points
   (including R7.1) wins with game points as in R8.1. Equal points: no game points, and the
   same dealer deals again. (NE, PG)
-- **R8.3** R5.3 and R5.4 override R8.1 and R8.2 when the talon was closed.
+- **R8.3** R5.3 and R5.4 override R8.1 and R8.2 when the talon was closed. When the hands
+  run out after a close and nobody declared, the closer wins if they have 66 or more (R5.3),
+  otherwise R5.4 applies; no declaration is needed once every card is played.
 
 ## 9. Match
 
@@ -128,8 +130,10 @@ take the option that keeps decisions meaningful without adding hidden traps.
 
 - 2026-11-27: Mehmet reviewed every section with his father. Bulgarian rules are kept as the
   standard throughout. Changes from the first draft: R8.1 (declared "out" instead of
-  automatic), and R1.2, R5.4, R8.1a, R8.1b aligned with the Bulgarian-language BG page and WB. House variants are noted but not adopted; configurable rules may come later
-  as game settings.
+  automatic), and R1.2, R5.4, R8.1a, R8.1b aligned with the Bulgarian-language BG page and
+  WB. House variants are noted but not adopted; configurable rules may come later as game
+  settings.
+- 2026-11-27, engine: R8.3 spells out how a closed deal ends when the hands run out.
 
 ## Open questions for Mehmet
 
