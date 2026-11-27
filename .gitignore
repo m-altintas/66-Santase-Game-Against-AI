@@ -9,4 +9,4 @@ dist/
 build/
 legacy/logs/
 legacy/*.csv
-results/
+/results/
