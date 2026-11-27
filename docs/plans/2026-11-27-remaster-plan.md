@@ -64,8 +64,10 @@ The legacy code is preserved under the tag `v0-university` before anything is re
 Design rules:
 
 1. **Information hiding by construction.** `State` is private to the engine. Bots and the UI
-   receive only `Observation` (own hand, trump card, visible tricks, announced marriages, scores,
-   deck size). An agent that never sees hidden cards cannot cheat.
+   receive only `Observation` (own hand, trump card, the cards played so far, announced
+   marriages, deck size). Running scores are not part of it (rules R8.1, R8.1b): a bot may
+   compute them from what it saw, the UI never shows them. An agent that never sees hidden
+   cards cannot cheat.
 2. **Pure, immutable core.** `step(state, action) -> state` has no side effects. That gives
    simple tests, cheap tree search, and deterministic replays.
 3. **Seeded and replayable.** A game is fully described by `(rules_version, seed, actions)`.
