@@ -1,6 +1,7 @@
 """Builders for hand-made deal states."""
 
 from santase.engine import Card, DealState, Suit, cards
+from santase.engine.state import TrumpTurned
 
 
 def make_state(
@@ -35,6 +36,7 @@ def make_state(
         marriage_points=marriage_points,
         tricks_won=tricks_won,
         closed_by=closed_by,
+        history=(TrumpTurned(talon_cards[-1]),) if talon_cards else (),
     )
 
 
